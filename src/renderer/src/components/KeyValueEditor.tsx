@@ -1,4 +1,5 @@
 export interface KeyValueRow {
+  readonly id: string;
   readonly key: string;
   readonly value: string;
 }
@@ -14,8 +15,14 @@ interface Props {
   readonly onChange: (next: KeyValueRow[]) => void;
 }
 
+let kvRowCounter = 0;
+function nextKvRowId(): string {
+  kvRowCounter += 1;
+  return `kv-${kvRowCounter}`;
+}
+
 export function recordToRows(value: Record<string, string>): KeyValueRow[] {
-  return Object.entries(value).map(([k, v]) => ({ key: k, value: v }));
+  return Object.entries(value).map(([k, v]) => ({ id: nextKvRowId(), key: k, value: v }));
 }
 
 export function rowsToRecord(rows: readonly KeyValueRow[]): Record<string, string> {
@@ -31,14 +38,15 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
     <div className="field">
       <label>{label}</label>
       {hint !== undefined ? <span className="hint">{hint}</span> : null}
-      {rows.map((row, idx) => (
-        <div key={idx} className="kv-row">
+      {rows.map((row) => (
+        <div key={row.id} className="kv-row">
           <input
             type="text"
             placeholder="KEY"
             value={row.key}
             onChange={(e) => {
-              const next = rows.map((r, i) => (i === idx ? { ...r, key: e.target.value } : r));
+              const newKey = e.target.value;
+              const next = rows.map((r) => (r.id === row.id ? { ...r, key: newKey } : r));
               onChange([...next]);
             }}
           />
@@ -47,7 +55,8 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
             placeholder="VALUE"
             value={row.value}
             onChange={(e) => {
-              const next = rows.map((r, i) => (i === idx ? { ...r, value: e.target.value } : r));
+              const newValue = e.target.value;
+              const next = rows.map((r) => (r.id === row.id ? { ...r, value: newValue } : r));
               onChange([...next]);
             }}
           />
@@ -55,7 +64,7 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
             type="button"
             className="btn btn-small btn-ghost"
             onClick={() => {
-              const next = rows.filter((_, i) => i !== idx);
+              const next = rows.filter((r) => r.id !== row.id);
               onChange([...next]);
             }}
           >
@@ -68,7 +77,7 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
         className="btn btn-small"
         style={{ alignSelf: 'flex-start' }}
         onClick={() => {
-          onChange([...rows, { key: '', value: '' }]);
+          onChange([...rows, { id: nextKvRowId(), key: '', value: '' }]);
         }}
       >
         ＋ 追加

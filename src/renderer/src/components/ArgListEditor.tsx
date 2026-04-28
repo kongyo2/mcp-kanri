@@ -1,8 +1,27 @@
+export interface ArgRow {
+  readonly id: string;
+  readonly value: string;
+}
+
+let argRowCounter = 0;
+function nextArgRowId(): string {
+  argRowCounter += 1;
+  return `arg-${argRowCounter}`;
+}
+
+export function stringsToArgRows(values: readonly string[]): ArgRow[] {
+  return values.map((v) => ({ id: nextArgRowId(), value: v }));
+}
+
+export function argRowsToStrings(rows: readonly ArgRow[]): string[] {
+  return rows.map((r) => r.value);
+}
+
 interface Props {
   readonly label: string;
   readonly hint?: string;
-  readonly value: readonly string[];
-  readonly onChange: (next: string[]) => void;
+  readonly value: readonly ArgRow[];
+  readonly onChange: (next: ArgRow[]) => void;
 }
 
 export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Element {
@@ -10,14 +29,15 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
     <div className="field">
       <label>{label}</label>
       {hint !== undefined ? <span className="hint">{hint}</span> : null}
-      {value.map((arg, idx) => (
-        <div key={idx} className="list-row">
+      {value.map((row, idx) => (
+        <div key={row.id} className="list-row">
           <input
             type="text"
-            value={arg}
+            value={row.value}
             placeholder={`引数 ${idx + 1}`}
             onChange={(e) => {
-              const next = value.map((v, i) => (i === idx ? e.target.value : v));
+              const newValue = e.target.value;
+              const next = value.map((r) => (r.id === row.id ? { ...r, value: newValue } : r));
               onChange(next);
             }}
           />
@@ -25,7 +45,7 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
             type="button"
             className="btn btn-small btn-ghost"
             onClick={() => {
-              const next = value.filter((_, i) => i !== idx);
+              const next = value.filter((r) => r.id !== row.id);
               onChange(next);
             }}
           >
@@ -38,7 +58,7 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
         className="btn btn-small"
         style={{ alignSelf: 'flex-start' }}
         onClick={() => {
-          onChange([...value, '']);
+          onChange([...value, { id: nextArgRowId(), value: '' }]);
         }}
       >
         ＋ 引数を追加

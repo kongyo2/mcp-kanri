@@ -211,7 +211,8 @@ pre {
   gap: 6px;
 }
 
-.field label {
+.field label,
+.field .field-label {
   font-weight: 600;
   font-size: 13px;
   color: var(--text);

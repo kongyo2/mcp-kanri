@@ -76,9 +76,6 @@ export const McpServerSchema = z.discriminatedUnion('transport', [
   SseServerSchema,
 ]);
 
-export type StdioServer = z.infer<typeof StdioServerSchema>;
-export type HttpServer = z.infer<typeof HttpServerSchema>;
-export type SseServer = z.infer<typeof SseServerSchema>;
 export type McpServer = z.infer<typeof McpServerSchema>;
 export type Transport = McpServer['transport'];
 export type Scope = McpServer['scope'];

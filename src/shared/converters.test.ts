@@ -127,7 +127,7 @@ describe('toCodexCli', () => {
       updatedAt: 0,
     };
     expect(toCodexCli(sseServer)).toBe(
-      'codex mcp add notion -- npx mcp-remote https://mcp.notion.com/sse',
+      'codex mcp add notion -- npx -y mcp-remote https://mcp.notion.com/sse',
     );
   });
 
@@ -144,7 +144,7 @@ describe('toCodexCli', () => {
       updatedAt: 0,
     };
     expect(toCodexCli(sseServer)).toBe(
-      "codex mcp add notion -- npx mcp-remote https://mcp.notion.com/sse --header 'Authorization: Bearer xyz'",
+      "codex mcp add notion -- npx -y mcp-remote https://mcp.notion.com/sse --header 'Authorization: Bearer xyz'",
     );
   });
 });
@@ -249,7 +249,7 @@ describe('toCodexToml', () => {
     expect(toCodexToml(sseServer)).toBe(
       '[mcp_servers.notion]\n' +
         'command = "npx"\n' +
-        'args = ["mcp-remote", "https://mcp.notion.com/sse"]\n',
+        'args = ["-y", "mcp-remote", "https://mcp.notion.com/sse"]\n',
     );
   });
 
@@ -268,7 +268,7 @@ describe('toCodexToml', () => {
     expect(toCodexToml(sseServer)).toBe(
       '[mcp_servers.notion]\n' +
         'command = "npx"\n' +
-        'args = ["mcp-remote", "https://mcp.notion.com/sse", "--header", "Authorization: Bearer xyz"]\n',
+        'args = ["-y", "mcp-remote", "https://mcp.notion.com/sse", "--header", "Authorization: Bearer xyz"]\n',
     );
   });
 });

@@ -162,12 +162,17 @@ export function toCodexCli(server: McpServer): string {
 /**
  * SSE / HTTP リモート MCP サーバを stdio に橋渡しする `mcp-remote` ブリッジコマンド。
  * 参考: https://www.npmjs.com/package/mcp-remote
+ *
+ * `npx` 第一引数に `-y` を付与し、Codex / Claude などの非対話ランチャから
+ * 実行された際に「`mcp-remote` をインストールしますか?」プロンプトでブロックして
+ * MCP サーバが起動しないことを防ぐ (`npx` のインストール確認はデフォルトでは
+ * 対話的、`--yes/-y` で抑制可能)。
  */
 export function mcpRemoteBridge(
   url: string,
   headers: Record<string, string>,
 ): { command: string; args: string[] } {
-  const args: string[] = ['mcp-remote', url];
+  const args: string[] = ['-y', 'mcp-remote', url];
   for (const [k, v] of Object.entries(headers)) {
     args.push('--header', `${k}: ${v}`);
   }

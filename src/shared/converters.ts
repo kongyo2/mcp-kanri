@@ -111,21 +111,80 @@ export function toClaudeCli(server: McpServer): string {
 }
 
 export function toCodexCli(server: McpServer): string {
-  // Codex CLI は現状 stdio が中心。リモート server は config.toml 直編集が必要。
-  if (server.transport !== 'stdio') {
-    return [
-      `# Codex CLI の \`codex mcp add\` は現状 stdio のみ対応です。`,
-      `# リモート (${server.transport}) サーバは右の "Codex config.toml" タブの内容を`,
-      `# \`~/.codex/config.toml\` に追記してください。`,
-    ].join('\n');
+  // Codex CLI が `codex mcp add` でサポートする transport は stdio と
+  // streamable_http のみ (sse は未対応)。
+  // 参考: openai/codex `codex-rs/cli/src/mcp_cmd.rs` の AddMcpTransportArgs。
+  if (server.transport === 'stdio') {
+    const parts: string[] = ['codex', 'mcp', 'add'];
+    parts.push(...envFlags(server.env));
+    parts.push(quoteShell(server.name));
+    parts.push('--');
+    parts.push(quoteShell(server.command));
+    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    return parts.filter(Boolean).join(' ');
   }
-  const parts: string[] = ['codex', 'mcp', 'add'];
-  parts.push(...envFlags(server.env));
-  parts.push(quoteShell(server.name));
-  parts.push('--');
-  parts.push(quoteShell(server.command));
-  if (server.args.length > 0) parts.push(joinArgs(server.args));
-  return parts.filter(Boolean).join(' ');
+
+  if (server.transport === 'http') {
+    const parts: string[] = [
+      'codex',
+      'mcp',
+      'add',
+      quoteShell(server.name),
+      '--url',
+      quoteShell(server.url),
+    ];
+    const bearerEnvVar = pickBearerTokenEnvVar(server.headers);
+    if (bearerEnvVar !== null) {
+      parts.push('--bearer-token-env-var', quoteShell(bearerEnvVar));
+    }
+    const lines: string[] = [parts.join(' ')];
+    const extraHeaders = stripBearerHeader(server.headers, bearerEnvVar !== null);
+    if (Object.keys(extraHeaders).length > 0) {
+      lines.push(
+        '# 注: 任意の HTTP ヘッダ (上記以外) は `codex mcp add` の CLI フラグでは渡せません。',
+        '#     右の "Codex config.toml" タブの `http_headers` をそのまま',
+        '#     ~/.codex/config.toml の該当 [mcp_servers.<name>] ブロックに追記してください。',
+      );
+    }
+    return lines.join('\n');
+  }
+
+  // sse は Codex CLI 未対応 — TOML 直編集の案内を出す。
+  return [
+    `# Codex CLI の \`codex mcp add\` は SSE トランスポートに未対応です`,
+    `# (サポートは stdio と streamable_http のみ)。`,
+    `# 右の "Codex config.toml" タブの内容を ~/.codex/config.toml に追記してください。`,
+  ].join('\n');
+}
+
+/**
+ * `Authorization: Bearer ${ENV_VAR}` 形式のヘッダを検出し、Codex CLI の
+ * `--bearer-token-env-var=<ENV_VAR>` に変換できるなら ENV_VAR 名を返す。
+ *
+ * Codex は実際のトークン値ではなく **環境変数名** を要求するため、
+ * `Authorization: Bearer <literal_token>` のようにリテラル値が指定されている場合は
+ * 変換せず (CLI ではなく config.toml + 環境変数の設定が必要)、null を返す。
+ */
+function pickBearerTokenEnvVar(headers: Record<string, string>): string | null {
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() !== 'authorization') continue;
+    const match = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/.exec(v);
+    if (match !== null && match[1] !== undefined) return match[1];
+  }
+  return null;
+}
+
+function stripBearerHeader(
+  headers: Record<string, string>,
+  removeAuthorization: boolean,
+): Record<string, string> {
+  if (!removeAuthorization) return headers;
+  const result: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === 'authorization') continue;
+    result[k] = v;
+  }
+  return result;
 }
 
 interface JsonStdio {

@@ -85,9 +85,50 @@ describe('toCodexCli', () => {
     );
   });
 
-  it('returns guidance comment for non-stdio (Codex CLI does not support remote add yet)', () => {
-    expect(toCodexCli(httpServer)).toContain('codex mcp add');
-    expect(toCodexCli(httpServer)).toContain('config.toml');
+  it('produces streamable HTTP `codex mcp add --url` command', () => {
+    const minimalHttp: McpServer = {
+      ...httpServer,
+      headers: {},
+    };
+    expect(toCodexCli(minimalHttp)).toBe('codex mcp add notion --url https://mcp.notion.com/mcp');
+  });
+
+  it('detects Authorization: Bearer ${ENV} headers and emits --bearer-token-env-var', () => {
+    const tokenServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Bearer ${NOTION_TOKEN}' },
+    };
+    expect(toCodexCli(tokenServer)).toBe(
+      'codex mcp add notion --url https://mcp.notion.com/mcp --bearer-token-env-var NOTION_TOKEN',
+    );
+  });
+
+  it('falls back to a follow-up note when arbitrary HTTP headers are present', () => {
+    const customHeader: McpServer = {
+      ...httpServer,
+      headers: { 'X-Custom': 'foo' },
+    };
+    const out = toCodexCli(customHeader);
+    expect(out).toContain('codex mcp add notion --url https://mcp.notion.com/mcp');
+    expect(out).toContain('http_headers');
+    expect(out).toContain('config.toml');
+  });
+
+  it('emits SSE-not-supported note for SSE transport', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'asana',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.asana.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const out = toCodexCli(sseServer);
+    expect(out).toContain('SSE');
+    expect(out).toContain('config.toml');
   });
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   McpServerInputSchema,
   type McpServer,
@@ -7,7 +7,7 @@ import {
   type Transport,
 } from '../../../shared/schema';
 import { KeyValueEditor, recordToRows, rowsToRecord, type KeyValueRow } from './KeyValueEditor';
-import { ArgListEditor } from './ArgListEditor';
+import { ArgListEditor, stringsToArgRows, argRowsToStrings, type ArgRow } from './ArgListEditor';
 
 interface Props {
   readonly initial?: McpServer;
@@ -21,7 +21,7 @@ interface DraftState {
   description: string;
   scope: Scope;
   command: string;
-  args: string[];
+  args: ArgRow[];
   envRows: KeyValueRow[];
   url: string;
   headerRows: KeyValueRow[];
@@ -35,7 +35,7 @@ function buildInitialDraft(initial?: McpServer): DraftState {
       description: '',
       scope: 'user',
       command: 'npx',
-      args: ['-y'],
+      args: stringsToArgRows(['-y']),
       envRows: [],
       url: '',
       headerRows: [],
@@ -48,7 +48,7 @@ function buildInitialDraft(initial?: McpServer): DraftState {
       description: initial.description ?? '',
       scope: initial.scope,
       command: initial.command,
-      args: [...initial.args],
+      args: stringsToArgRows(initial.args),
       envRows: recordToRows(initial.env),
       url: '',
       headerRows: [],
@@ -78,7 +78,7 @@ function buildInput(draft: DraftState): McpServerInput {
       ...base,
       transport: 'stdio' as const,
       command: draft.command.trim(),
-      args: draft.args.filter((a) => a.length > 0),
+      args: argRowsToStrings(draft.args).filter((a) => a.length > 0),
       env: rowsToRecord(draft.envRows),
     };
   }
@@ -94,6 +94,12 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
   const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(initial));
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const transportId = useId();
+  const nameId = useId();
+  const scopeId = useId();
+  const descriptionId = useId();
+  const commandId = useId();
+  const urlId = useId();
 
   useEffect(() => {
     setDraft(buildInitialDraft(initial));
@@ -129,11 +135,13 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
       }}
     >
       <div className="field">
-        <label>トランスポート</label>
+        <span id={transportId} className="field-label">
+          トランスポート
+        </span>
         <span className="hint">
           stdio はローカルプロセス起動 / http (Streamable) と sse はリモート MCP サーバ
         </span>
-        <div className="transport-tabs" role="tablist">
+        <div className="transport-tabs" role="tablist" aria-labelledby={transportId}>
           {(['stdio', 'http', 'sse'] as const).map((t) => (
             <button
               key={t}
@@ -151,11 +159,12 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
 
       <div className="field-row">
         <div className="field">
-          <label>名前 (server-name)</label>
+          <label htmlFor={nameId}>名前 (server-name)</label>
           <span className="hint">
             英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`
           </span>
           <input
+            id={nameId}
             type="text"
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -164,9 +173,10 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
           />
         </div>
         <div className="field" style={{ maxWidth: 220 }}>
-          <label>scope (Claude CLI / Codex CLI)</label>
+          <label htmlFor={scopeId}>scope (Claude CLI / Codex CLI)</label>
           <span className="hint">CLI の `--scope` オプションに反映</span>
           <select
+            id={scopeId}
             value={draft.scope}
             onChange={(e) => setDraft({ ...draft, scope: e.target.value as Scope })}
           >
@@ -178,8 +188,9 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
       </div>
 
       <div className="field">
-        <label>説明 (任意)</label>
+        <label htmlFor={descriptionId}>説明 (任意)</label>
         <textarea
+          id={descriptionId}
           value={draft.description}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
           placeholder="メモ・用途・参考リンクなど"
@@ -190,8 +201,9 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
         <>
           <div className="field-row">
             <div className="field" style={{ flex: '0 0 220px' }}>
-              <label>command</label>
+              <label htmlFor={commandId}>command</label>
               <input
+                id={commandId}
                 type="text"
                 value={draft.command}
                 onChange={(e) => setDraft({ ...draft, command: e.target.value })}
@@ -216,13 +228,14 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
       ) : (
         <>
           <div className="field">
-            <label>URL</label>
+            <label htmlFor={urlId}>URL</label>
             <span className="hint">
               {draft.transport === 'http'
                 ? '例: https://mcp.notion.com/mcp'
                 : '例: https://mcp.asana.com/sse'}
             </span>
             <input
+              id={urlId}
               type="url"
               value={draft.url}
               onChange={(e) => setDraft({ ...draft, url: e.target.value })}

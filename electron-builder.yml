@@ -14,7 +14,7 @@ win:
         - x64
 nsis:
   oneClick: false
-  allowToChangeInstallationDir: true
+  allowToChangeInstallationDirectory: true
   perMachine: false
   artifactName: MCP-Kanri-Setup-${version}.${ext}
 publish: null

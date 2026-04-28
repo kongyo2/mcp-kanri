@@ -18,20 +18,27 @@ export function App(): JSX.Element {
   const [toast, setToast] = useState<Toast | null>(null);
   const [storePath, setStorePath] = useState<string>('');
 
-  const reload = useCallback(async (): Promise<void> => {
-    const list = await kanri.list();
-    setServers(list);
+  const showToast = useCallback((message: string, kind: 'success' | 'error'): void => {
+    setToast({ message, kind });
+    window.setTimeout(() => setToast(null), 2200);
   }, []);
+
+  const reload = useCallback(async (): Promise<void> => {
+    try {
+      const list = await kanri.list();
+      setServers(list);
+    } catch (err) {
+      // ストアの読込/パース/スキーマ検証で失敗した場合、storage.ts は空ストアで
+      // 上書きせず例外を投げてくる。ユーザにエラーを提示し、サイドバーは前回値
+      // (空でも) を維持する。
+      showToast(err instanceof Error ? err.message : String(err), 'error');
+    }
+  }, [showToast]);
 
   useEffect(() => {
     void reload();
     void kanri.getStorePath().then(setStorePath);
   }, [reload]);
-
-  const showToast = (message: string, kind: 'success' | 'error'): void => {
-    setToast({ message, kind });
-    window.setTimeout(() => setToast(null), 2200);
-  };
 
   const selected = useMemo(
     () => servers.find((s) => s.id === selectedId) ?? null,
@@ -42,19 +49,27 @@ export function App(): JSX.Element {
     mode.kind === 'edit' ? (servers.find((s) => s.id === mode.serverId) ?? null) : null;
 
   const handleCreate = async (input: McpServerInput): Promise<void> => {
-    const created = await kanri.create(input);
-    await reload();
-    setSelectedId(created.id);
-    setMode({ kind: 'idle' });
-    showToast(`"${created.name}" を登録しました`, 'success');
+    try {
+      const created = await kanri.create(input);
+      await reload();
+      setSelectedId(created.id);
+      setMode({ kind: 'idle' });
+      showToast(`"${created.name}" を登録しました`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), 'error');
+    }
   };
 
   const handleUpdate = async (id: string, input: McpServerInput): Promise<void> => {
-    const updated = await kanri.update(id, input);
-    await reload();
-    setSelectedId(updated.id);
-    setMode({ kind: 'idle' });
-    showToast(`"${updated.name}" を更新しました`, 'success');
+    try {
+      const updated = await kanri.update(id, input);
+      await reload();
+      setSelectedId(updated.id);
+      setMode({ kind: 'idle' });
+      showToast(`"${updated.name}" を更新しました`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), 'error');
+    }
   };
 
   const handleRemove = async (server: McpServer): Promise<void> => {

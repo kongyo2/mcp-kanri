@@ -203,11 +203,35 @@ describe('toCodexToml', () => {
     expect(text).toContain('env = { AIRTABLE_API_KEY = "YOUR_KEY" }');
   });
 
-  it('emits url for remote (http) server', () => {
+  it('emits literal Authorization headers in http_headers', () => {
     const text = toCodexToml(httpServer);
     expect(text).toContain('[mcp_servers.notion]');
     expect(text).toContain('url = "https://mcp.notion.com/mcp"');
+    // `Authorization: Bearer xyz` はリテラル値なので bearer_token_env_var ではなく http_headers
     expect(text).toContain('http_headers = { Authorization = "Bearer xyz" }');
+    expect(text).not.toContain('bearer_token_env_var');
+  });
+
+  it('maps Authorization: Bearer ${ENV_VAR} to bearer_token_env_var (Codex env-backed auth)', () => {
+    const tokenServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Bearer ${NOTION_TOKEN}' },
+    };
+    const text = toCodexToml(tokenServer);
+    expect(text).toContain('bearer_token_env_var = "NOTION_TOKEN"');
+    // `${NOTION_TOKEN}` がリテラルとして http_headers に書き出されないこと
+    expect(text).not.toContain('http_headers');
+    expect(text).not.toContain('${NOTION_TOKEN}');
+  });
+
+  it('maps non-Authorization ${ENV_VAR} headers to env_http_headers', () => {
+    const envHeaderServer: McpServer = {
+      ...httpServer,
+      headers: { 'X-API-Token': '${MY_TOKEN}', 'X-Static': 'literal' },
+    };
+    const text = toCodexToml(envHeaderServer);
+    expect(text).toContain('env_http_headers = { X-API-Token = "MY_TOKEN" }');
+    expect(text).toContain('http_headers = { X-Static = "literal" }');
   });
 
   it('bridges SSE servers via npx mcp-remote in TOML', () => {

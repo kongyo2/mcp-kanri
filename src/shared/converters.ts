@@ -204,6 +204,46 @@ function stripBearerHeader(
   return result;
 }
 
+/**
+ * Codex の `[mcp_servers.<name>]` ストリーム HTTP 用に、ヘッダを 3 種類に振り分ける。
+ *
+ * - `bearer_token_env_var` : `Authorization: Bearer ${ENV_VAR}` パターン
+ * - `env_http_headers`     : 任意ヘッダ + 値が `${ENV_VAR}` 全体の場合
+ * - `http_headers`         : それ以外 (リテラル値)
+ *
+ * 参考: openai/codex `codex-rs/config/src/mcp_types.rs` の `McpServerTransportConfig::StreamableHttp`
+ */
+export interface CodexHeaderPartition {
+  readonly bearerTokenEnvVar: string | null;
+  readonly envHttpHeaders: Record<string, string>;
+  readonly staticHttpHeaders: Record<string, string>;
+}
+
+const ENV_REF = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+
+export function partitionCodexHttpHeaders(headers: Record<string, string>): CodexHeaderPartition {
+  const bearerEnvVar = pickBearerTokenEnvVar(headers);
+  const envHttpHeaders: Record<string, string> = {};
+  const staticHttpHeaders: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (bearerEnvVar !== null && k.toLowerCase() === 'authorization') {
+      // bearer_token_env_var に統合済みなのでスキップ
+      continue;
+    }
+    const envMatch = ENV_REF.exec(v);
+    if (envMatch !== null && envMatch[1] !== undefined) {
+      envHttpHeaders[k] = envMatch[1];
+    } else {
+      staticHttpHeaders[k] = v;
+    }
+  }
+  return {
+    bearerTokenEnvVar: bearerEnvVar,
+    envHttpHeaders,
+    staticHttpHeaders,
+  };
+}
+
 interface JsonStdio {
   command: string;
   args?: string[];
@@ -289,8 +329,15 @@ export function toCodexToml(server: McpServer): string {
     }
   } else if (server.transport === 'http') {
     lines.push(`url = ${tomlString(server.url)}`);
-    if (Object.keys(server.headers).length > 0) {
-      lines.push(`http_headers = ${tomlInlineTable(server.headers)}`);
+    const part = partitionCodexHttpHeaders(server.headers);
+    if (part.bearerTokenEnvVar !== null) {
+      lines.push(`bearer_token_env_var = ${tomlString(part.bearerTokenEnvVar)}`);
+    }
+    if (Object.keys(part.staticHttpHeaders).length > 0) {
+      lines.push(`http_headers = ${tomlInlineTable(part.staticHttpHeaders)}`);
+    }
+    if (Object.keys(part.envHttpHeaders).length > 0) {
+      lines.push(`env_http_headers = ${tomlInlineTable(part.envHttpHeaders)}`);
     }
   } else {
     // sse: Codex は SSE をネイティブサポートしないため stdio + mcp-remote 橋渡し。

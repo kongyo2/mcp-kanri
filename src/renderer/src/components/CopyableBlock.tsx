@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Props {
   readonly text: string;
@@ -6,6 +6,12 @@ interface Props {
 
 export function CopyableBlock({ text }: Props): JSX.Element {
   const [copied, setCopied] = useState<boolean>(false);
+
+  // フォーマットタブ切替やサーバ選択変更で `text` が変わった場合は、
+  // 直前のコピー成功表示が誤って残らないようリセットする。
+  useEffect(() => {
+    setCopied(false);
+  }, [text]);
 
   const onCopy = async (): Promise<void> => {
     try {

@@ -1,0 +1,101 @@
+name: Release (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'リリースタグ名 (例: v0.1.0)。空の場合は package.json の version から自動生成'
+        required: false
+        type: string
+      create_release:
+        description: 'GitHub Release を作成する'
+        required: false
+        type: boolean
+        default: true
+      draft:
+        description: 'Release をドラフトとして作成する'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'プレリリースとしてマークする'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows installer
+    runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.resolve_tag.outputs.tag }}
+      version: ${{ steps.resolve_tag.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve tag
+        id: resolve_tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ -z "$INPUT_TAG" ]; then
+            tag="v${version}"
+          else
+            tag="$INPUT_TAG"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Windows installer
+        run: npm run build:win
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-kanri-windows-installer
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: ${{ inputs.create_release }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mcp-kanri-windows-installer
+          path: release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          name: ${{ needs.build.outputs.tag }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

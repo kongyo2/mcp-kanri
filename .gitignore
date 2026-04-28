@@ -1,0 +1,11 @@
+node_modules
+out
+dist
+release
+.vscode
+.DS_Store
+*.log
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local

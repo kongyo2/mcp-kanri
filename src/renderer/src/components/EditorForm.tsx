@@ -6,7 +6,7 @@ import {
   type Scope,
   type Transport,
 } from '../../../shared/schema';
-import { KeyValueEditor } from './KeyValueEditor';
+import { KeyValueEditor, recordToRows, rowsToRecord, type KeyValueRow } from './KeyValueEditor';
 import { ArgListEditor } from './ArgListEditor';
 
 interface Props {
@@ -22,9 +22,9 @@ interface DraftState {
   scope: Scope;
   command: string;
   args: string[];
-  env: Record<string, string>;
+  envRows: KeyValueRow[];
   url: string;
-  headers: Record<string, string>;
+  headerRows: KeyValueRow[];
 }
 
 function buildInitialDraft(initial?: McpServer): DraftState {
@@ -36,9 +36,9 @@ function buildInitialDraft(initial?: McpServer): DraftState {
       scope: 'user',
       command: 'npx',
       args: ['-y'],
-      env: {},
+      envRows: [],
       url: '',
-      headers: {},
+      headerRows: [],
     };
   }
   if (initial.transport === 'stdio') {
@@ -49,9 +49,9 @@ function buildInitialDraft(initial?: McpServer): DraftState {
       scope: initial.scope,
       command: initial.command,
       args: [...initial.args],
-      env: { ...initial.env },
+      envRows: recordToRows(initial.env),
       url: '',
-      headers: {},
+      headerRows: [],
     };
   }
   return {
@@ -61,9 +61,9 @@ function buildInitialDraft(initial?: McpServer): DraftState {
     scope: initial.scope,
     command: 'npx',
     args: [],
-    env: {},
+    envRows: [],
     url: initial.url,
-    headers: { ...initial.headers },
+    headerRows: recordToRows(initial.headers),
   };
 }
 
@@ -79,14 +79,14 @@ function buildInput(draft: DraftState): McpServerInput {
       transport: 'stdio' as const,
       command: draft.command.trim(),
       args: draft.args.filter((a) => a.length > 0),
-      env: draft.env,
+      env: rowsToRecord(draft.envRows),
     };
   }
   return {
     ...base,
     transport: draft.transport,
     url: draft.url.trim(),
-    headers: draft.headers,
+    headers: rowsToRecord(draft.headerRows),
   };
 }
 
@@ -209,8 +209,8 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
           <KeyValueEditor
             label="env"
             hint="MCP サーバに渡す環境変数 (API キーなど)"
-            value={draft.env}
-            onChange={(next) => setDraft({ ...draft, env: next })}
+            rows={draft.envRows}
+            onChange={(next) => setDraft({ ...draft, envRows: next })}
           />
         </>
       ) : (
@@ -233,8 +233,8 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
           <KeyValueEditor
             label="headers"
             hint="例: `Authorization` = `Bearer xxxxx`"
-            value={draft.headers}
-            onChange={(next) => setDraft({ ...draft, headers: next })}
+            rows={draft.headerRows}
+            onChange={(next) => setDraft({ ...draft, headerRows: next })}
           />
         </>
       )}

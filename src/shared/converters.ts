@@ -149,12 +149,29 @@ export function toCodexCli(server: McpServer): string {
     return lines.join('\n');
   }
 
-  // sse は Codex CLI 未対応 — TOML 直編集の案内を出す。
-  return [
-    `# Codex CLI の \`codex mcp add\` は SSE トランスポートに未対応です`,
-    `# (サポートは stdio と streamable_http のみ)。`,
-    `# 右の "Codex config.toml" タブの内容を ~/.codex/config.toml に追記してください。`,
-  ].join('\n');
+  // sse は Codex CLI が直接サポートしないため、`mcp-remote` で stdio に
+  // ブリッジする方式 (Anthropic 等が公式に紹介している常套手段) で stdio
+  // サーバとして登録する。
+  const bridge = mcpRemoteBridge(server.url, server.headers);
+  const parts: string[] = ['codex', 'mcp', 'add', quoteShell(server.name), '--'];
+  parts.push(quoteShell(bridge.command));
+  if (bridge.args.length > 0) parts.push(joinArgs(bridge.args));
+  return parts.join(' ');
+}
+
+/**
+ * SSE / HTTP リモート MCP サーバを stdio に橋渡しする `mcp-remote` ブリッジコマンド。
+ * 参考: https://www.npmjs.com/package/mcp-remote
+ */
+export function mcpRemoteBridge(
+  url: string,
+  headers: Record<string, string>,
+): { command: string; args: string[] } {
+  const args: string[] = ['mcp-remote', url];
+  for (const [k, v] of Object.entries(headers)) {
+    args.push('--header', `${k}: ${v}`);
+  }
+  return { command: 'npx', args };
 }
 
 /**
@@ -255,7 +272,10 @@ function tomlInlineTable(record: Record<string, string>): string {
 }
 
 export function toCodexToml(server: McpServer): string {
-  // Codex は `[mcp_servers.<name>]` の TOML テーブル。
+  // Codex の `~/.codex/config.toml` は `[mcp_servers.<name>]` の TOML テーブル。
+  // McpServerTransportConfig は `Stdio` と `StreamableHttp` のみで `Sse` 列挙子は
+  // ない (openai/codex `codex-rs/config/src/mcp_types.rs`)。SSE は CLI と同じく
+  // `mcp-remote` で stdio に橋渡しする形で書き出す。
   const header = `[mcp_servers.${tomlKey(server.name)}]`;
   const lines: string[] = [header];
 
@@ -267,11 +287,16 @@ export function toCodexToml(server: McpServer): string {
     if (Object.keys(server.env).length > 0) {
       lines.push(`env = ${tomlInlineTable(server.env)}`);
     }
-  } else {
+  } else if (server.transport === 'http') {
     lines.push(`url = ${tomlString(server.url)}`);
     if (Object.keys(server.headers).length > 0) {
       lines.push(`http_headers = ${tomlInlineTable(server.headers)}`);
     }
+  } else {
+    // sse: Codex は SSE をネイティブサポートしないため stdio + mcp-remote 橋渡し。
+    const bridge = mcpRemoteBridge(server.url, server.headers);
+    lines.push(`command = ${tomlString(bridge.command)}`);
+    lines.push(`args = ${tomlArrayOfStrings(bridge.args)}`);
   }
   return lines.join('\n') + '\n';
 }

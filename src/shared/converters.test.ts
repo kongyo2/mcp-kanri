@@ -114,21 +114,38 @@ describe('toCodexCli', () => {
     expect(out).toContain('config.toml');
   });
 
-  it('emits SSE-not-supported note for SSE transport', () => {
+  it('bridges SSE servers via npx mcp-remote (Codex has no native SSE support)', () => {
     const sseServer: McpServer = {
       id: 'srv-3',
-      name: 'asana',
+      name: 'notion',
       description: '',
       transport: 'sse',
-      url: 'https://mcp.asana.com/sse',
+      url: 'https://mcp.notion.com/sse',
       headers: {},
       scope: 'user',
       createdAt: 0,
       updatedAt: 0,
     };
-    const out = toCodexCli(sseServer);
-    expect(out).toContain('SSE');
-    expect(out).toContain('config.toml');
+    expect(toCodexCli(sseServer)).toBe(
+      'codex mcp add notion -- npx mcp-remote https://mcp.notion.com/sse',
+    );
+  });
+
+  it('passes SSE headers through to mcp-remote --header flags', () => {
+    const sseServer: McpServer = {
+      id: 'srv-4',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: { Authorization: 'Bearer xyz' },
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    expect(toCodexCli(sseServer)).toBe(
+      "codex mcp add notion -- npx mcp-remote https://mcp.notion.com/sse --header 'Authorization: Bearer xyz'",
+    );
   });
 });
 
@@ -186,11 +203,49 @@ describe('toCodexToml', () => {
     expect(text).toContain('env = { AIRTABLE_API_KEY = "YOUR_KEY" }');
   });
 
-  it('emits url for remote server', () => {
+  it('emits url for remote (http) server', () => {
     const text = toCodexToml(httpServer);
     expect(text).toContain('[mcp_servers.notion]');
     expect(text).toContain('url = "https://mcp.notion.com/mcp"');
     expect(text).toContain('http_headers = { Authorization = "Bearer xyz" }');
+  });
+
+  it('bridges SSE servers via npx mcp-remote in TOML', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    expect(toCodexToml(sseServer)).toBe(
+      '[mcp_servers.notion]\n' +
+        'command = "npx"\n' +
+        'args = ["mcp-remote", "https://mcp.notion.com/sse"]\n',
+    );
+  });
+
+  it('passes SSE headers as additional --header args in TOML bridge', () => {
+    const sseServer: McpServer = {
+      id: 'srv-4',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: { Authorization: 'Bearer xyz' },
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    expect(toCodexToml(sseServer)).toBe(
+      '[mcp_servers.notion]\n' +
+        'command = "npx"\n' +
+        'args = ["mcp-remote", "https://mcp.notion.com/sse", "--header", "Authorization: Bearer xyz"]\n',
+    );
   });
 });
 

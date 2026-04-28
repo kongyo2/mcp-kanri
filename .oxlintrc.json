@@ -1,0 +1,12 @@
+{
+  "plugins": ["promise", "import", "node", "react"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-console": "off",
+    "typescript/no-explicit-any": "error"
+  },
+  "ignorePatterns": ["node_modules", "dist", "build", "out", "release", "coverage", "*.min.js"]
+}

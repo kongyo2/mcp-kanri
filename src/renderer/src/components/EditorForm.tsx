@@ -153,7 +153,7 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
         <div className="field">
           <label>名前 (server-name)</label>
           <span className="hint">
-            英数字 / `_` / `-` / `.` のみ。例: `chrome-devtools` `context7`
+            英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`
           </span>
           <input
             type="text"

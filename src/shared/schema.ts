@@ -11,13 +11,24 @@ import { z } from 'zod';
  * - sse    : Server-Sent Events リモートサーバ (`url` + `headers`)
  */
 
+/**
+ * 出力先クライアントすべてで安全に使えるサーバ名のみ許可する。
+ *
+ * 制約の根拠:
+ * - **Codex CLI**: `validate_server_name` は `[a-zA-Z0-9_-]+` のみ許可
+ *   (openai/codex `codex-rs/cli/src/mcp_cmd.rs` / `codex-mcp/src/rmcp_client.rs`)
+ * - **TOML bare key**: `[A-Za-z0-9_-]+` (それ以外の文字を含む場合は引用が必要で
+ *   `[mcp_servers.<name>]` テーブルヘッダ表記が壊れる)
+ * - JSON / Claude CLI 側はもっと緩いが、共通の最大公約数として `[A-Za-z0-9_-]` のみ
+ *   許可する。`.` は Codex CLI で拒否されるため除外。
+ */
 const NameSchema = z
   .string()
   .min(1, 'name は必須です')
   .max(64, 'name は 64 文字以内で指定してください')
   .regex(
-    /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/,
-    'name は英数字 / _ / - / . のみ使用できます (先頭は英数字)',
+    /^[A-Za-z0-9_-]+$/,
+    'name は英数字 / _ / - のみ使用できます (Codex CLI / TOML bare key 互換)',
   );
 
 const KeyValueRecord = z.record(z.string(), z.string());

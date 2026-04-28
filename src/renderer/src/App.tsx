@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { kanri } from './api';
 import type { McpServer, McpServerInput } from '../../shared/schema';
 import { EditorForm } from './components/EditorForm';
@@ -17,10 +17,25 @@ export function App(): JSX.Element {
   const [mode, setMode] = useState<Mode>({ kind: 'idle' });
   const [toast, setToast] = useState<Toast | null>(null);
   const [storePath, setStorePath] = useState<string>('');
+  const toastTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const showToast = useCallback((message: string, kind: 'success' | 'error'): void => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
     setToast({ message, kind });
-    window.setTimeout(() => setToast(null), 2200);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2200);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
 
   const reload = useCallback(async (): Promise<void> => {

@@ -8,7 +8,9 @@ import {
   toClaudeDesktop,
   toCodexCli,
   toCodexToml,
+  toGeminiCli,
   toMcpJson,
+  toQwenCli,
   toVscodeJson,
 } from './converters.js';
 
@@ -275,6 +277,69 @@ describe('toCodexToml', () => {
   });
 });
 
+describe('toGeminiCli', () => {
+  it('matches the canonical chrome-devtools-mcp README example (project scope, stdio default)', () => {
+    // 公式: https://github.com/ChromeDevTools/chrome-devtools-mcp README 「Gemini CLI」
+    //   gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest
+    // 既定 scope を project / 既定 transport を stdio として `--transport` は省略する。
+    expect(toGeminiCli({ ...stdioBase, scope: 'project' })).toBe(
+      'gemini mcp add --scope project chrome-devtools npx -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('uses --scope user for user scope', () => {
+    expect(toGeminiCli(stdioBase)).toBe(
+      'gemini mcp add --scope user chrome-devtools npx -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('maps local scope to project (gemini only supports user/project)', () => {
+    expect(toGeminiCli(stdioWithEnv)).toBe(
+      'gemini mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -y airtable-mcp-server',
+    );
+  });
+
+  it('emits --transport http with -H header flags for http servers', () => {
+    expect(toGeminiCli(httpServer)).toBe(
+      "gemini mcp add --scope user --transport http -H 'Authorization: Bearer xyz' notion https://mcp.notion.com/mcp",
+    );
+  });
+
+  it('emits --transport sse for sse servers', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    expect(toGeminiCli(sseServer)).toBe(
+      'gemini mcp add --scope user --transport sse notion https://mcp.notion.com/sse',
+    );
+  });
+});
+
+describe('toQwenCli', () => {
+  it('mirrors gemini CLI with the qwen binary name (qwen-code is a fork)', () => {
+    expect(toQwenCli({ ...stdioBase, scope: 'project' })).toBe(
+      'qwen mcp add --scope project chrome-devtools npx -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('handles env and remote transports identically to gemini', () => {
+    expect(toQwenCli(stdioWithEnv)).toBe(
+      'qwen mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -y airtable-mcp-server',
+    );
+    expect(toQwenCli(httpServer)).toBe(
+      "qwen mcp add --scope user --transport http -H 'Authorization: Bearer xyz' notion https://mcp.notion.com/mcp",
+    );
+  });
+});
+
 describe('toClaudeDesktop', () => {
   it('emits standard mcpServers JSON for stdio (no type field)', () => {
     const parsed: unknown = JSON.parse(toClaudeDesktop(stdioBase));
@@ -370,6 +435,8 @@ describe('formatServer dispatch', () => {
   it('returns correct format for each id', () => {
     expect(formatServer('claude-cli', stdioBase)).toContain('claude mcp add');
     expect(formatServer('codex-cli', stdioBase)).toContain('codex mcp add');
+    expect(formatServer('gemini-cli', stdioBase)).toContain('gemini mcp add');
+    expect(formatServer('qwen-cli', stdioBase)).toContain('qwen mcp add');
     expect(formatServer('claude-desktop', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('mcp-json', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('vscode-json', stdioBase)).toContain('"servers"');

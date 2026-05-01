@@ -5,17 +5,24 @@ import type { McpServer, Scope } from './schema.js';
  *
  * - claude-cli      : `claude mcp add ...` 形式の CLI コマンド (公式: docs.anthropic.com)
  * - codex-cli       : `codex mcp add ...` 形式の CLI コマンド (公式: openai/codex docs)
+ * - gemini-cli      : `gemini mcp add ...` 形式の CLI コマンド
+ *                     (google-gemini/gemini-cli `packages/cli/src/commands/mcp/add.ts`)
+ * - qwen-cli        : `qwen mcp add ...` 形式の CLI コマンド。qwen-code は gemini-cli の
+ *                     fork で `gemini` → `qwen` 以外は同一 (qwenlm/qwen-code docs 参照)。
  * - claude-desktop  : Claude Desktop の `claude_desktop_config.json` 用 JSON。
  *                     リモート (http/sse) は Claude Desktop 本体が未対応のため
  *                     mcpm.sh と同じく `uvx mcp-proxy` で stdio に橋渡しする。
- * - mcp-json        : Cursor / Windsurf / Cline / Gemini など `{"mcpServers": {...}}`
+ * - mcp-json        : Cursor / Windsurf / Cline など `{"mcpServers": {...}}`
  *                     を共通スキーマでそのまま受け付けるクライアント向け汎用 JSON
+ *                     (Gemini CLI / Qwen Code の settings.json にもそのまま貼れる)
  * - vscode-json     : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
  * - codex-toml      : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
  *                     (キーは `mcp_servers` で snake_case)
  *
  * 参考: mcp-router/apps/electron/src/main/modules/mcp-apps-manager/app-paths.ts,
- *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,claude_code,codex_cli,vscode}.py,
+ *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,claude_code,codex_cli,vscode,gemini_cli,qwen_cli}.py,
+ *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
+ *       https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/,
  *       https://code.claude.com/docs/en/mcp.md,
  *       https://modelcontextprotocol.io/llms-full.txt
  */
@@ -23,6 +30,8 @@ import type { McpServer, Scope } from './schema.js';
 export type FormatId =
   | 'claude-cli'
   | 'codex-cli'
+  | 'gemini-cli'
+  | 'qwen-cli'
   | 'claude-desktop'
   | 'mcp-json'
   | 'vscode-json'
@@ -46,6 +55,18 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     id: 'codex-cli',
     title: 'Codex CLI',
     subtitle: '`codex mcp add` コマンド形式',
+    language: 'bash',
+  },
+  {
+    id: 'gemini-cli',
+    title: 'Gemini CLI',
+    subtitle: '`gemini mcp add` コマンド形式 (settings.json: `~/.gemini/settings.json`)',
+    language: 'bash',
+  },
+  {
+    id: 'qwen-cli',
+    title: 'Qwen Code',
+    subtitle: '`qwen mcp add` コマンド形式 (settings.json: `~/.qwen/settings.json`)',
     language: 'bash',
   },
   {
@@ -174,6 +195,63 @@ export function toCodexCli(server: McpServer): string {
   parts.push(quoteShell(bridge.command));
   if (bridge.args.length > 0) parts.push(joinArgs(bridge.args));
   return parts.join(' ');
+}
+
+/**
+ * Gemini CLI / Qwen Code 共通の `<bin> mcp add` コマンドを生成する。
+ *
+ * qwen-code は google-gemini/gemini-cli の fork で、CLI のコマンド体系は完全に同一
+ * (バイナリ名と settings ディレクトリだけ `gemini` → `qwen` に置き換わる) なので
+ * バイナリ名を引数化したヘルパとして実装する。
+ *
+ * 構文: `<bin> mcp add [options] <name> <commandOrUrl> [args...]`
+ *
+ * 主な特徴 (Claude / Codex CLI と異なる点):
+ * - 引数の `--` 区切りは使わない (`gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest`
+ *   のように name の後に command + args を直接続ける。yargs の
+ *   `'unknown-options-as-args': true` で実現されている)。
+ * - scope は `--scope user|project` のみで、`local` は無いので `local`/`project`
+ *   は `--scope project` に丸める。
+ * - stdio がデフォルト transport なので `--transport stdio` は省略する
+ *   (chrome-devtools-mcp の README 等の正式例に合わせる)。
+ * - リモートは `--transport http|sse` を明示し、`-H "K: V"` 形式でヘッダを渡す。
+ *
+ * 参考: google-gemini/gemini-cli `packages/cli/src/commands/mcp/add.ts`,
+ *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
+ *       ChromeDevTools/chrome-devtools-mcp README,
+ *       https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/
+ */
+function toGeminiLikeCli(bin: 'gemini' | 'qwen', server: McpServer): string {
+  const scopeArg = server.scope === 'user' ? 'user' : 'project';
+  const parts: string[] = [bin, 'mcp', 'add', '--scope', scopeArg];
+
+  if (server.transport === 'stdio') {
+    // -e KEY=value を name より前に並べる (gemini-cli のテストにある正式な並び)。
+    for (const [k, v] of Object.entries(server.env)) {
+      parts.push('-e', quoteShell(`${k}=${v}`));
+    }
+    parts.push(quoteShell(server.name));
+    parts.push(quoteShell(server.command));
+    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    return parts.join(' ');
+  }
+
+  // remote (http / sse)
+  parts.push('--transport', server.transport);
+  for (const [k, v] of Object.entries(server.headers)) {
+    parts.push('-H', quoteShell(`${k}: ${v}`));
+  }
+  parts.push(quoteShell(server.name));
+  parts.push(quoteShell(server.url));
+  return parts.join(' ');
+}
+
+export function toGeminiCli(server: McpServer): string {
+  return toGeminiLikeCli('gemini', server);
+}
+
+export function toQwenCli(server: McpServer): string {
+  return toGeminiLikeCli('qwen', server);
 }
 
 /**
@@ -420,6 +498,10 @@ export function formatServer(format: FormatId, server: McpServer): string {
       return toClaudeCli(server);
     case 'codex-cli':
       return toCodexCli(server);
+    case 'gemini-cli':
+      return toGeminiCli(server);
+    case 'qwen-cli':
+      return toQwenCli(server);
     case 'claude-desktop':
       return toClaudeDesktop(server);
     case 'mcp-json':

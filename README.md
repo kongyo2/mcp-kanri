@@ -55,31 +55,6 @@ Windows 11 向けの MCP (Model Context Protocol) 設定管理デスクトップ
 - **永続化**: 登録は `%APPDATA%\mcp-kanri\mcp-kanri-store.json` に
   バージョニング付き JSON で保存されます。
 
-## サーバ名の制約
-
-すべての出力先クライアントで安全に使えるよう、サーバ名は `[A-Za-z0-9_-]+`
-(64 文字以内) のみ許可しています。これは Codex CLI の `validate_server_name`
-と TOML の bare key 制約 (`[mcp_servers.<name>]`) を満たす最大公約数です。
-
-## 開発
-
-```sh
-npm install
-npm run dev          # electron-vite dev (HMR)
-npm run typecheck    # tsc --noEmit
-npm run lint         # oxlint
-npm run test         # vitest run
-npm run build        # 本番ビルド
-npm run build:win    # Windows インストーラ (NSIS) 生成
-```
-
-## 技術スタック
-
-- Electron + electron-vite
-- React 18 + TypeScript
-- Zod (スキーマ検証)
-- oxlint / Prettier / Vitest
-
 ## ライセンス
 
 MIT

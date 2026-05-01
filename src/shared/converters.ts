@@ -3,19 +3,30 @@ import type { McpServer, Scope } from './schema.js';
 /**
  * 各種 MCP クライアントへ貼り付けるためのフォーマット出力。
  *
- * - claude-cli  : `claude mcp add ...` 形式の CLI コマンド (公式: docs.anthropic.com)
- * - codex-cli   : `codex mcp add ...` 形式の CLI コマンド (公式: openai/codex docs)
- * - mcp-json    : Claude Desktop / Cursor / Windsurf / Cline / Gemini で共通の
- *                 `{"mcpServers": {...}}` JSON
- * - vscode-json : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
- * - codex-toml  : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
- *                 (キーは `mcp_servers` で snake_case)
+ * - claude-cli      : `claude mcp add ...` 形式の CLI コマンド (公式: docs.anthropic.com)
+ * - codex-cli       : `codex mcp add ...` 形式の CLI コマンド (公式: openai/codex docs)
+ * - claude-desktop  : Claude Desktop の `claude_desktop_config.json` 用 JSON。
+ *                     リモート (http/sse) は Claude Desktop 本体が未対応のため
+ *                     mcpm.sh と同じく `uvx mcp-proxy` で stdio に橋渡しする。
+ * - mcp-json        : Cursor / Windsurf / Cline / Gemini など `{"mcpServers": {...}}`
+ *                     を共通スキーマでそのまま受け付けるクライアント向け汎用 JSON
+ * - vscode-json     : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
+ * - codex-toml      : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
+ *                     (キーは `mcp_servers` で snake_case)
  *
  * 参考: mcp-router/apps/electron/src/main/modules/mcp-apps-manager/app-paths.ts,
- *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,codex_cli,vscode}.py
+ *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,claude_code,codex_cli,vscode}.py,
+ *       https://code.claude.com/docs/en/mcp.md,
+ *       https://modelcontextprotocol.io/llms-full.txt
  */
 
-export type FormatId = 'claude-cli' | 'codex-cli' | 'mcp-json' | 'vscode-json' | 'codex-toml';
+export type FormatId =
+  | 'claude-cli'
+  | 'codex-cli'
+  | 'claude-desktop'
+  | 'mcp-json'
+  | 'vscode-json'
+  | 'codex-toml';
 
 export interface FormatDescriptor {
   readonly id: FormatId;
@@ -38,9 +49,15 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     language: 'bash',
   },
   {
+    id: 'claude-desktop',
+    title: 'Claude Desktop',
+    subtitle: '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
+    language: 'json',
+  },
+  {
     id: 'mcp-json',
     title: 'mcpServers JSON',
-    subtitle: 'Claude Desktop / Cursor / Windsurf / Cline / Gemini',
+    subtitle: 'Cursor / Windsurf / Cline / Gemini など共通形式',
     language: 'json',
   },
   {
@@ -287,6 +304,48 @@ export function toVscodeJson(server: McpServer): string {
   return JSON.stringify(obj, null, 2);
 }
 
+/**
+ * Claude Desktop (`claude_desktop_config.json`) は本体が stdio MCP サーバのみ対応で、
+ * `type: "http"` / `type: "sse"` のリモートエントリは認識されない。
+ *
+ * mcpm.sh の `ClaudeDesktopManager.to_client_format` は `RemoteServerConfig` を
+ * `to_mcp_proxy_stdio()` 経由で `uvx mcp-proxy <URL> [--headers KEY VALUE ...]` の
+ * stdio コマンドに変換してから書き出している。同じ仕様を踏襲する。
+ *
+ * 参考: mcpm.sh/src/mcpm/clients/managers/claude_desktop.py,
+ *       mcpm.sh/src/mcpm/core/schema.py `RemoteServerConfig.to_mcp_proxy_stdio`
+ */
+export function mcpProxyBridge(
+  url: string,
+  headers: Record<string, string>,
+): { command: string; args: string[] } {
+  const args: string[] = ['mcp-proxy', url];
+  const headerEntries = Object.entries(headers);
+  if (headerEntries.length > 0) {
+    args.push('--headers');
+    for (const [k, v] of headerEntries) {
+      args.push(k);
+      args.push(v);
+    }
+  }
+  return { command: 'uvx', args };
+}
+
+export function toClaudeDesktop(server: McpServer): string {
+  let value: JsonStdio;
+  if (server.transport === 'stdio') {
+    const stdio: JsonStdio = { command: server.command };
+    if (server.args.length > 0) stdio.args = server.args;
+    if (Object.keys(server.env).length > 0) stdio.env = server.env;
+    value = stdio;
+  } else {
+    const bridge = mcpProxyBridge(server.url, server.headers);
+    value = { command: bridge.command, args: bridge.args };
+  }
+  const obj = { mcpServers: { [server.name]: value } };
+  return JSON.stringify(obj, null, 2);
+}
+
 // -------------------- TOML --------------------
 
 const TOML_BARE_KEY = /^[A-Za-z0-9_-]+$/;
@@ -361,6 +420,8 @@ export function formatServer(format: FormatId, server: McpServer): string {
       return toClaudeCli(server);
     case 'codex-cli':
       return toCodexCli(server);
+    case 'claude-desktop':
+      return toClaudeDesktop(server);
     case 'mcp-json':
       return toMcpJson(server);
     case 'vscode-json':

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { McpServer } from './schema.js';
 import {
   formatServer,
+  mcpProxyBridge,
   quoteShell,
   toClaudeCli,
+  toClaudeDesktop,
   toCodexCli,
   toCodexToml,
   toMcpJson,
@@ -273,10 +275,102 @@ describe('toCodexToml', () => {
   });
 });
 
+describe('toClaudeDesktop', () => {
+  it('emits standard mcpServers JSON for stdio (no type field)', () => {
+    const parsed: unknown = JSON.parse(toClaudeDesktop(stdioBase));
+    expect(parsed).toEqual({
+      mcpServers: {
+        'chrome-devtools': {
+          command: 'npx',
+          args: ['-y', 'chrome-devtools-mcp@latest'],
+        },
+      },
+    });
+  });
+
+  it('includes env when provided', () => {
+    const parsed: unknown = JSON.parse(toClaudeDesktop(stdioWithEnv));
+    expect(parsed).toEqual({
+      mcpServers: {
+        airtable: {
+          command: 'npx',
+          args: ['-y', 'airtable-mcp-server'],
+          env: { AIRTABLE_API_KEY: 'YOUR_KEY' },
+        },
+      },
+    });
+  });
+
+  it('bridges http servers via uvx mcp-proxy (Claude Desktop has no native remote support)', () => {
+    const parsed: unknown = JSON.parse(toClaudeDesktop(httpServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          command: 'uvx',
+          args: [
+            'mcp-proxy',
+            'https://mcp.notion.com/mcp',
+            '--headers',
+            'Authorization',
+            'Bearer xyz',
+          ],
+        },
+      },
+    });
+  });
+
+  it('bridges sse servers via uvx mcp-proxy with no headers', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const parsed: unknown = JSON.parse(toClaudeDesktop(sseServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          command: 'uvx',
+          args: ['mcp-proxy', 'https://mcp.notion.com/sse'],
+        },
+      },
+    });
+  });
+});
+
+describe('mcpProxyBridge', () => {
+  it('matches mcpm.sh RemoteServerConfig.to_mcp_proxy_stdio output', () => {
+    expect(mcpProxyBridge('https://example.com/mcp', {})).toEqual({
+      command: 'uvx',
+      args: ['mcp-proxy', 'https://example.com/mcp'],
+    });
+    expect(
+      mcpProxyBridge('https://example.com/mcp', { Authorization: 'Bearer t', 'X-Foo': 'bar' }),
+    ).toEqual({
+      command: 'uvx',
+      args: [
+        'mcp-proxy',
+        'https://example.com/mcp',
+        '--headers',
+        'Authorization',
+        'Bearer t',
+        'X-Foo',
+        'bar',
+      ],
+    });
+  });
+});
+
 describe('formatServer dispatch', () => {
   it('returns correct format for each id', () => {
     expect(formatServer('claude-cli', stdioBase)).toContain('claude mcp add');
     expect(formatServer('codex-cli', stdioBase)).toContain('codex mcp add');
+    expect(formatServer('claude-desktop', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('mcp-json', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('vscode-json', stdioBase)).toContain('"servers"');
     expect(formatServer('codex-toml', stdioBase)).toContain('[mcp_servers.');

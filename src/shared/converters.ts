@@ -385,28 +385,37 @@ export function toVscodeJson(server: McpServer): string {
 
 /**
  * Claude Desktop (`claude_desktop_config.json`) は本体が stdio MCP サーバのみ対応で、
- * `type: "http"` / `type: "sse"` のリモートエントリは認識されない。
+ * `type: "http"` / `type: "sse"` のリモートエントリは認識されない。mcpm.sh の
+ * `ClaudeDesktopManager.to_client_format` に倣い、`uvx mcp-proxy` で stdio に
+ * 橋渡しした stdio コマンドへ変換する。
  *
- * mcpm.sh の `ClaudeDesktopManager.to_client_format` は `RemoteServerConfig` を
- * `to_mcp_proxy_stdio()` 経由で `uvx mcp-proxy <URL> [--headers KEY VALUE ...]` の
- * stdio コマンドに変換してから書き出している。同じ仕様を踏襲する。
+ * sparfenyuk/mcp-proxy の CLI 仕様 (README) に厳密に合わせるため、mcpm.sh の
+ * 実装にあった以下のバグは修正している:
+ *
+ * - `--transport` 既定が SSE なので、ソースが `transport: "http"` (Streamable HTTP) の
+ *   場合は `--transport streamablehttp` を明示しないと SSE で接続しに行って失敗する。
+ * - `--headers KEY VALUE` は repeatable で、複数ヘッダは `--headers K1 V1
+ *   --headers K2 V2 ...` のように `--headers` ごとに繰り返す必要がある。一度だけ
+ *   `--headers` を出して KEY VALUE を並べると 2 ペア目以降が位置引数として
+ *   解釈されてしまう。
  *
  * 参考: mcpm.sh/src/mcpm/clients/managers/claude_desktop.py,
- *       mcpm.sh/src/mcpm/core/schema.py `RemoteServerConfig.to_mcp_proxy_stdio`
+ *       mcpm.sh/src/mcpm/core/schema.py `RemoteServerConfig.to_mcp_proxy_stdio`,
+ *       https://github.com/sparfenyuk/mcp-proxy README (CLI flags)
  */
 export function mcpProxyBridge(
+  sourceTransport: 'http' | 'sse',
   url: string,
   headers: Record<string, string>,
 ): { command: string; args: string[] } {
-  const args: string[] = ['mcp-proxy', url];
-  const headerEntries = Object.entries(headers);
-  if (headerEntries.length > 0) {
-    args.push('--headers');
-    for (const [k, v] of headerEntries) {
-      args.push(k);
-      args.push(v);
-    }
+  const args: string[] = ['mcp-proxy'];
+  if (sourceTransport === 'http') {
+    args.push('--transport', 'streamablehttp');
   }
+  for (const [k, v] of Object.entries(headers)) {
+    args.push('--headers', k, v);
+  }
+  args.push(url);
   return { command: 'uvx', args };
 }
 
@@ -418,7 +427,7 @@ export function toClaudeDesktop(server: McpServer): string {
     if (Object.keys(server.env).length > 0) stdio.env = server.env;
     value = stdio;
   } else {
-    const bridge = mcpProxyBridge(server.url, server.headers);
+    const bridge = mcpProxyBridge(server.transport, server.url, server.headers);
     value = { command: bridge.command, args: bridge.args };
   }
   const obj = { mcpServers: { [server.name]: value } };

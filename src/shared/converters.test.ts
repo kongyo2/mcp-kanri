@@ -366,7 +366,9 @@ describe('toClaudeDesktop', () => {
     });
   });
 
-  it('bridges http servers via uvx mcp-proxy (Claude Desktop has no native remote support)', () => {
+  it('bridges http (Streamable HTTP) servers with --transport streamablehttp', () => {
+    // mcp-proxy のクライアント側 transport 既定は SSE のため、ソースが
+    // `transport: "http"` の場合は `--transport streamablehttp` を明示する必要がある。
     const parsed: unknown = JSON.parse(toClaudeDesktop(httpServer));
     expect(parsed).toEqual({
       mcpServers: {
@@ -374,17 +376,19 @@ describe('toClaudeDesktop', () => {
           command: 'uvx',
           args: [
             'mcp-proxy',
-            'https://mcp.notion.com/mcp',
+            '--transport',
+            'streamablehttp',
             '--headers',
             'Authorization',
             'Bearer xyz',
+            'https://mcp.notion.com/mcp',
           ],
         },
       },
     });
   });
 
-  it('bridges sse servers via uvx mcp-proxy with no headers', () => {
+  it('bridges sse servers via uvx mcp-proxy with no headers (default transport=sse)', () => {
     const sseServer: McpServer = {
       id: 'srv-3',
       name: 'notion',
@@ -406,26 +410,57 @@ describe('toClaudeDesktop', () => {
       },
     });
   });
+
+  it('repeats --headers KEY VALUE for each header (mcp-proxy syntax is repeatable)', () => {
+    const multiHeaderServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Bearer xyz', 'X-Custom': 'foo' },
+    };
+    const parsed = JSON.parse(toClaudeDesktop(multiHeaderServer)) as {
+      mcpServers: { notion: { args: string[] } };
+    };
+    expect(parsed.mcpServers.notion.args).toEqual([
+      'mcp-proxy',
+      '--transport',
+      'streamablehttp',
+      '--headers',
+      'Authorization',
+      'Bearer xyz',
+      '--headers',
+      'X-Custom',
+      'foo',
+      'https://mcp.notion.com/mcp',
+    ]);
+  });
 });
 
 describe('mcpProxyBridge', () => {
-  it('matches mcpm.sh RemoteServerConfig.to_mcp_proxy_stdio output', () => {
-    expect(mcpProxyBridge('https://example.com/mcp', {})).toEqual({
+  it('emits sse client transport (default) with no headers', () => {
+    expect(mcpProxyBridge('sse', 'https://example.com/sse', {})).toEqual({
       command: 'uvx',
-      args: ['mcp-proxy', 'https://example.com/mcp'],
+      args: ['mcp-proxy', 'https://example.com/sse'],
     });
+  });
+
+  it('adds --transport streamablehttp for http source and repeats --headers', () => {
     expect(
-      mcpProxyBridge('https://example.com/mcp', { Authorization: 'Bearer t', 'X-Foo': 'bar' }),
+      mcpProxyBridge('http', 'https://example.com/mcp', {
+        Authorization: 'Bearer t',
+        'X-Foo': 'bar',
+      }),
     ).toEqual({
       command: 'uvx',
       args: [
         'mcp-proxy',
-        'https://example.com/mcp',
+        '--transport',
+        'streamablehttp',
         '--headers',
         'Authorization',
         'Bearer t',
+        '--headers',
         'X-Foo',
         'bar',
+        'https://example.com/mcp',
       ],
     });
   });

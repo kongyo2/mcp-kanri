@@ -278,24 +278,44 @@ describe('toCodexToml', () => {
 });
 
 describe('toGeminiCli', () => {
-  it('matches the canonical chrome-devtools-mcp README example (project scope, stdio default)', () => {
-    // 公式: https://github.com/ChromeDevTools/chrome-devtools-mcp README 「Gemini CLI」
-    //   gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest
+  it('matches the chrome-devtools-mcp README pattern (project scope, stdio default, -- separator before args)', () => {
+    // chrome-devtools-mcp README: gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest
     // 既定 scope を project / 既定 transport を stdio として `--transport` は省略する。
+    // ただし server 側 args (`-y` 等) は `--` で区切らないと yargs の既知フラグ
+    // (`-e` `-H` `--scope` 等) と衝突する場合があるので、args が 1 つでもあれば常に `--` を挟む。
     expect(toGeminiCli({ ...stdioBase, scope: 'project' })).toBe(
-      'gemini mcp add --scope project chrome-devtools npx -y chrome-devtools-mcp@latest',
+      'gemini mcp add --scope project chrome-devtools npx -- -y chrome-devtools-mcp@latest',
     );
   });
 
   it('uses --scope user for user scope', () => {
     expect(toGeminiCli(stdioBase)).toBe(
-      'gemini mcp add --scope user chrome-devtools npx -y chrome-devtools-mcp@latest',
+      'gemini mcp add --scope user chrome-devtools npx -- -y chrome-devtools-mcp@latest',
     );
   });
 
-  it('maps local scope to project (gemini only supports user/project)', () => {
+  it('maps local scope to project (gemini only supports user/project) and inserts -- before args', () => {
     expect(toGeminiCli(stdioWithEnv)).toBe(
-      'gemini mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -y airtable-mcp-server',
+      'gemini mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -- -y airtable-mcp-server',
+    );
+  });
+
+  it('omits -- when there are no server-side args', () => {
+    const noArgs: McpServer = { ...stdioBase, args: [] };
+    expect(toGeminiCli(noArgs)).toBe('gemini mcp add --scope user chrome-devtools npx');
+  });
+
+  it('keeps server args that look like flags intact via -- (e.g. docker -e ENV=val)', () => {
+    // 例: docker run で動かすサーバを想定。`-e` は gemini-cli の env フラグと衝突するので
+    // `--` を挟まないと server args が `mcp add` 側の `-e` として誤って消費される。
+    const docker: McpServer = {
+      ...stdioBase,
+      name: 'pg',
+      command: 'docker',
+      args: ['run', '-i', '--rm', '-e', 'POSTGRES_URL', 'mcp/postgres'],
+    };
+    expect(toGeminiCli(docker)).toBe(
+      'gemini mcp add --scope user pg docker -- run -i --rm -e POSTGRES_URL mcp/postgres',
     );
   });
 
@@ -326,13 +346,13 @@ describe('toGeminiCli', () => {
 describe('toQwenCli', () => {
   it('mirrors gemini CLI with the qwen binary name (qwen-code is a fork)', () => {
     expect(toQwenCli({ ...stdioBase, scope: 'project' })).toBe(
-      'qwen mcp add --scope project chrome-devtools npx -y chrome-devtools-mcp@latest',
+      'qwen mcp add --scope project chrome-devtools npx -- -y chrome-devtools-mcp@latest',
     );
   });
 
   it('handles env and remote transports identically to gemini', () => {
     expect(toQwenCli(stdioWithEnv)).toBe(
-      'qwen mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -y airtable-mcp-server',
+      'qwen mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -- -y airtable-mcp-server',
     );
     expect(toQwenCli(httpServer)).toBe(
       "qwen mcp add --scope user --transport http -H 'Authorization: Bearer xyz' notion https://mcp.notion.com/mcp",

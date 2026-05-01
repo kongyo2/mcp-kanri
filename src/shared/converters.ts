@@ -208,14 +208,18 @@ export function toCodexCli(server: McpServer): string {
  * 構文: `<bin> mcp add [options] <name> <commandOrUrl> [args...]`
  *
  * 主な特徴 (Claude / Codex CLI と異なる点):
- * - 引数の `--` 区切りは使わない (`gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest`
- *   のように name の後に command + args を直接続ける。yargs の
- *   `'unknown-options-as-args': true` で実現されている)。
  * - scope は `--scope user|project` のみで、`local` は無いので `local`/`project`
  *   は `--scope project` に丸める。
  * - stdio がデフォルト transport なので `--transport stdio` は省略する
  *   (chrome-devtools-mcp の README 等の正式例に合わせる)。
  * - リモートは `--transport http|sse` を明示し、`-H "K: V"` 形式でヘッダを渡す。
+ * - stdio で server 側 args が 1 つ以上ある場合は `--` 区切りを必ず挟む。
+ *   gemini-cli は `'unknown-options-as-args': true` だが既知フラグ
+ *   (`-e` `-H` `--scope` `--transport` `--timeout` `--trust` 等) は
+ *   そのまま yargs に消費されてしまうため、`-e ENVVAR=val` のような
+ *   サーバ引数が壊れる。`'populate--': true` で `--` 以降は確実に
+ *   `args[...]` の variadic positional として保存される
+ *   (gemini-cli `mcp/add.test.ts` `'should handle MCP server args with -- separator'` 参照)。
  *
  * 参考: google-gemini/gemini-cli `packages/cli/src/commands/mcp/add.ts`,
  *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
@@ -233,7 +237,10 @@ function toGeminiLikeCli(bin: 'gemini' | 'qwen', server: McpServer): string {
     }
     parts.push(quoteShell(server.name));
     parts.push(quoteShell(server.command));
-    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    if (server.args.length > 0) {
+      parts.push('--');
+      parts.push(joinArgs(server.args));
+    }
     return parts.join(' ');
   }
 

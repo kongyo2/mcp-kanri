@@ -72,7 +72,8 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
   {
     id: 'claude-desktop',
     title: 'Claude Desktop',
-    subtitle: '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
+    subtitle:
+      '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
     language: 'json',
   },
   {

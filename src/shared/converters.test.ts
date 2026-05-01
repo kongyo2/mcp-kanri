@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { McpServer } from './schema.js';
 import {
   formatServer,
+  mcpProxyBridge,
   quoteShell,
   toClaudeCli,
+  toClaudeDesktop,
   toCodexCli,
   toCodexToml,
+  toGeminiCli,
   toMcpJson,
+  toQwenCli,
   toVscodeJson,
 } from './converters.js';
 
@@ -273,10 +277,222 @@ describe('toCodexToml', () => {
   });
 });
 
+describe('toGeminiCli', () => {
+  it('matches the chrome-devtools-mcp README pattern (project scope, stdio default, -- separator before args)', () => {
+    // chrome-devtools-mcp README: gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest
+    // 既定 scope を project / 既定 transport を stdio として `--transport` は省略する。
+    // ただし server 側 args (`-y` 等) は `--` で区切らないと yargs の既知フラグ
+    // (`-e` `-H` `--scope` 等) と衝突する場合があるので、args が 1 つでもあれば常に `--` を挟む。
+    expect(toGeminiCli({ ...stdioBase, scope: 'project' })).toBe(
+      'gemini mcp add --scope project chrome-devtools npx -- -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('uses --scope user for user scope', () => {
+    expect(toGeminiCli(stdioBase)).toBe(
+      'gemini mcp add --scope user chrome-devtools npx -- -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('maps local scope to project (gemini only supports user/project) and inserts -- before args', () => {
+    expect(toGeminiCli(stdioWithEnv)).toBe(
+      'gemini mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -- -y airtable-mcp-server',
+    );
+  });
+
+  it('omits -- when there are no server-side args', () => {
+    const noArgs: McpServer = { ...stdioBase, args: [] };
+    expect(toGeminiCli(noArgs)).toBe('gemini mcp add --scope user chrome-devtools npx');
+  });
+
+  it('keeps server args that look like flags intact via -- (e.g. docker -e ENV=val)', () => {
+    // 例: docker run で動かすサーバを想定。`-e` は gemini-cli の env フラグと衝突するので
+    // `--` を挟まないと server args が `mcp add` 側の `-e` として誤って消費される。
+    const docker: McpServer = {
+      ...stdioBase,
+      name: 'pg',
+      command: 'docker',
+      args: ['run', '-i', '--rm', '-e', 'POSTGRES_URL', 'mcp/postgres'],
+    };
+    expect(toGeminiCli(docker)).toBe(
+      'gemini mcp add --scope user pg docker -- run -i --rm -e POSTGRES_URL mcp/postgres',
+    );
+  });
+
+  it('emits --transport http with -H header flags for http servers', () => {
+    expect(toGeminiCli(httpServer)).toBe(
+      "gemini mcp add --scope user --transport http -H 'Authorization: Bearer xyz' notion https://mcp.notion.com/mcp",
+    );
+  });
+
+  it('emits --transport sse for sse servers', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    expect(toGeminiCli(sseServer)).toBe(
+      'gemini mcp add --scope user --transport sse notion https://mcp.notion.com/sse',
+    );
+  });
+});
+
+describe('toQwenCli', () => {
+  it('mirrors gemini CLI with the qwen binary name (qwen-code is a fork)', () => {
+    expect(toQwenCli({ ...stdioBase, scope: 'project' })).toBe(
+      'qwen mcp add --scope project chrome-devtools npx -- -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('handles env and remote transports identically to gemini', () => {
+    expect(toQwenCli(stdioWithEnv)).toBe(
+      'qwen mcp add --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable npx -- -y airtable-mcp-server',
+    );
+    expect(toQwenCli(httpServer)).toBe(
+      "qwen mcp add --scope user --transport http -H 'Authorization: Bearer xyz' notion https://mcp.notion.com/mcp",
+    );
+  });
+});
+
+describe('toClaudeDesktop', () => {
+  it('emits standard mcpServers JSON for stdio (no type field)', () => {
+    const parsed: unknown = JSON.parse(toClaudeDesktop(stdioBase));
+    expect(parsed).toEqual({
+      mcpServers: {
+        'chrome-devtools': {
+          command: 'npx',
+          args: ['-y', 'chrome-devtools-mcp@latest'],
+        },
+      },
+    });
+  });
+
+  it('includes env when provided', () => {
+    const parsed: unknown = JSON.parse(toClaudeDesktop(stdioWithEnv));
+    expect(parsed).toEqual({
+      mcpServers: {
+        airtable: {
+          command: 'npx',
+          args: ['-y', 'airtable-mcp-server'],
+          env: { AIRTABLE_API_KEY: 'YOUR_KEY' },
+        },
+      },
+    });
+  });
+
+  it('bridges http (Streamable HTTP) servers with --transport streamablehttp', () => {
+    // mcp-proxy のクライアント側 transport 既定は SSE のため、ソースが
+    // `transport: "http"` の場合は `--transport streamablehttp` を明示する必要がある。
+    const parsed: unknown = JSON.parse(toClaudeDesktop(httpServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          command: 'uvx',
+          args: [
+            'mcp-proxy',
+            '--transport',
+            'streamablehttp',
+            '--headers',
+            'Authorization',
+            'Bearer xyz',
+            'https://mcp.notion.com/mcp',
+          ],
+        },
+      },
+    });
+  });
+
+  it('bridges sse servers via uvx mcp-proxy with no headers (default transport=sse)', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const parsed: unknown = JSON.parse(toClaudeDesktop(sseServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          command: 'uvx',
+          args: ['mcp-proxy', 'https://mcp.notion.com/sse'],
+        },
+      },
+    });
+  });
+
+  it('repeats --headers KEY VALUE for each header (mcp-proxy syntax is repeatable)', () => {
+    const multiHeaderServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Bearer xyz', 'X-Custom': 'foo' },
+    };
+    const parsed = JSON.parse(toClaudeDesktop(multiHeaderServer)) as {
+      mcpServers: { notion: { args: string[] } };
+    };
+    expect(parsed.mcpServers.notion.args).toEqual([
+      'mcp-proxy',
+      '--transport',
+      'streamablehttp',
+      '--headers',
+      'Authorization',
+      'Bearer xyz',
+      '--headers',
+      'X-Custom',
+      'foo',
+      'https://mcp.notion.com/mcp',
+    ]);
+  });
+});
+
+describe('mcpProxyBridge', () => {
+  it('emits sse client transport (default) with no headers', () => {
+    expect(mcpProxyBridge('sse', 'https://example.com/sse', {})).toEqual({
+      command: 'uvx',
+      args: ['mcp-proxy', 'https://example.com/sse'],
+    });
+  });
+
+  it('adds --transport streamablehttp for http source and repeats --headers', () => {
+    expect(
+      mcpProxyBridge('http', 'https://example.com/mcp', {
+        Authorization: 'Bearer t',
+        'X-Foo': 'bar',
+      }),
+    ).toEqual({
+      command: 'uvx',
+      args: [
+        'mcp-proxy',
+        '--transport',
+        'streamablehttp',
+        '--headers',
+        'Authorization',
+        'Bearer t',
+        '--headers',
+        'X-Foo',
+        'bar',
+        'https://example.com/mcp',
+      ],
+    });
+  });
+});
+
 describe('formatServer dispatch', () => {
   it('returns correct format for each id', () => {
     expect(formatServer('claude-cli', stdioBase)).toContain('claude mcp add');
     expect(formatServer('codex-cli', stdioBase)).toContain('codex mcp add');
+    expect(formatServer('gemini-cli', stdioBase)).toContain('gemini mcp add');
+    expect(formatServer('qwen-cli', stdioBase)).toContain('qwen mcp add');
+    expect(formatServer('claude-desktop', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('mcp-json', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('vscode-json', stdioBase)).toContain('"servers"');
     expect(formatServer('codex-toml', stdioBase)).toContain('[mcp_servers.');

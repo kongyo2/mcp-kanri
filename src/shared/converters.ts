@@ -3,19 +3,39 @@ import type { McpServer, Scope } from './schema.js';
 /**
  * 各種 MCP クライアントへ貼り付けるためのフォーマット出力。
  *
- * - claude-cli  : `claude mcp add ...` 形式の CLI コマンド (公式: docs.anthropic.com)
- * - codex-cli   : `codex mcp add ...` 形式の CLI コマンド (公式: openai/codex docs)
- * - mcp-json    : Claude Desktop / Cursor / Windsurf / Cline / Gemini で共通の
- *                 `{"mcpServers": {...}}` JSON
- * - vscode-json : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
- * - codex-toml  : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
- *                 (キーは `mcp_servers` で snake_case)
+ * - claude-cli      : `claude mcp add ...` 形式の CLI コマンド (公式: docs.anthropic.com)
+ * - codex-cli       : `codex mcp add ...` 形式の CLI コマンド (公式: openai/codex docs)
+ * - gemini-cli      : `gemini mcp add ...` 形式の CLI コマンド
+ *                     (google-gemini/gemini-cli `packages/cli/src/commands/mcp/add.ts`)
+ * - qwen-cli        : `qwen mcp add ...` 形式の CLI コマンド。qwen-code は gemini-cli の
+ *                     fork で `gemini` → `qwen` 以外は同一 (qwenlm/qwen-code docs 参照)。
+ * - claude-desktop  : Claude Desktop の `claude_desktop_config.json` 用 JSON。
+ *                     リモート (http/sse) は Claude Desktop 本体が未対応のため
+ *                     mcpm.sh と同じく `uvx mcp-proxy` で stdio に橋渡しする。
+ * - mcp-json        : Cursor / Windsurf / Cline など `{"mcpServers": {...}}`
+ *                     を共通スキーマでそのまま受け付けるクライアント向け汎用 JSON
+ *                     (Gemini CLI / Qwen Code の settings.json にもそのまま貼れる)
+ * - vscode-json     : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
+ * - codex-toml      : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
+ *                     (キーは `mcp_servers` で snake_case)
  *
  * 参考: mcp-router/apps/electron/src/main/modules/mcp-apps-manager/app-paths.ts,
- *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,codex_cli,vscode}.py
+ *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,claude_code,codex_cli,vscode,gemini_cli,qwen_cli}.py,
+ *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
+ *       https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/,
+ *       https://code.claude.com/docs/en/mcp.md,
+ *       https://modelcontextprotocol.io/llms-full.txt
  */
 
-export type FormatId = 'claude-cli' | 'codex-cli' | 'mcp-json' | 'vscode-json' | 'codex-toml';
+export type FormatId =
+  | 'claude-cli'
+  | 'codex-cli'
+  | 'gemini-cli'
+  | 'qwen-cli'
+  | 'claude-desktop'
+  | 'mcp-json'
+  | 'vscode-json'
+  | 'codex-toml';
 
 export interface FormatDescriptor {
   readonly id: FormatId;
@@ -38,9 +58,28 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     language: 'bash',
   },
   {
+    id: 'gemini-cli',
+    title: 'Gemini CLI',
+    subtitle: '`gemini mcp add` コマンド形式 (settings.json: `~/.gemini/settings.json`)',
+    language: 'bash',
+  },
+  {
+    id: 'qwen-cli',
+    title: 'Qwen Code',
+    subtitle: '`qwen mcp add` コマンド形式 (settings.json: `~/.qwen/settings.json`)',
+    language: 'bash',
+  },
+  {
+    id: 'claude-desktop',
+    title: 'Claude Desktop',
+    subtitle:
+      '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
+    language: 'json',
+  },
+  {
     id: 'mcp-json',
     title: 'mcpServers JSON',
-    subtitle: 'Claude Desktop / Cursor / Windsurf / Cline / Gemini',
+    subtitle: 'Cursor / Windsurf / Cline / Gemini など共通形式',
     language: 'json',
   },
   {
@@ -157,6 +196,70 @@ export function toCodexCli(server: McpServer): string {
   parts.push(quoteShell(bridge.command));
   if (bridge.args.length > 0) parts.push(joinArgs(bridge.args));
   return parts.join(' ');
+}
+
+/**
+ * Gemini CLI / Qwen Code 共通の `<bin> mcp add` コマンドを生成する。
+ *
+ * qwen-code は google-gemini/gemini-cli の fork で、CLI のコマンド体系は完全に同一
+ * (バイナリ名と settings ディレクトリだけ `gemini` → `qwen` に置き換わる) なので
+ * バイナリ名を引数化したヘルパとして実装する。
+ *
+ * 構文: `<bin> mcp add [options] <name> <commandOrUrl> [args...]`
+ *
+ * 主な特徴 (Claude / Codex CLI と異なる点):
+ * - scope は `--scope user|project` のみで、`local` は無いので `local`/`project`
+ *   は `--scope project` に丸める。
+ * - stdio がデフォルト transport なので `--transport stdio` は省略する
+ *   (chrome-devtools-mcp の README 等の正式例に合わせる)。
+ * - リモートは `--transport http|sse` を明示し、`-H "K: V"` 形式でヘッダを渡す。
+ * - stdio で server 側 args が 1 つ以上ある場合は `--` 区切りを必ず挟む。
+ *   gemini-cli は `'unknown-options-as-args': true` だが既知フラグ
+ *   (`-e` `-H` `--scope` `--transport` `--timeout` `--trust` 等) は
+ *   そのまま yargs に消費されてしまうため、`-e ENVVAR=val` のような
+ *   サーバ引数が壊れる。`'populate--': true` で `--` 以降は確実に
+ *   `args[...]` の variadic positional として保存される
+ *   (gemini-cli `mcp/add.test.ts` `'should handle MCP server args with -- separator'` 参照)。
+ *
+ * 参考: google-gemini/gemini-cli `packages/cli/src/commands/mcp/add.ts`,
+ *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
+ *       ChromeDevTools/chrome-devtools-mcp README,
+ *       https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/
+ */
+function toGeminiLikeCli(bin: 'gemini' | 'qwen', server: McpServer): string {
+  const scopeArg = server.scope === 'user' ? 'user' : 'project';
+  const parts: string[] = [bin, 'mcp', 'add', '--scope', scopeArg];
+
+  if (server.transport === 'stdio') {
+    // -e KEY=value を name より前に並べる (gemini-cli のテストにある正式な並び)。
+    for (const [k, v] of Object.entries(server.env)) {
+      parts.push('-e', quoteShell(`${k}=${v}`));
+    }
+    parts.push(quoteShell(server.name));
+    parts.push(quoteShell(server.command));
+    if (server.args.length > 0) {
+      parts.push('--');
+      parts.push(joinArgs(server.args));
+    }
+    return parts.join(' ');
+  }
+
+  // remote (http / sse)
+  parts.push('--transport', server.transport);
+  for (const [k, v] of Object.entries(server.headers)) {
+    parts.push('-H', quoteShell(`${k}: ${v}`));
+  }
+  parts.push(quoteShell(server.name));
+  parts.push(quoteShell(server.url));
+  return parts.join(' ');
+}
+
+export function toGeminiCli(server: McpServer): string {
+  return toGeminiLikeCli('gemini', server);
+}
+
+export function toQwenCli(server: McpServer): string {
+  return toGeminiLikeCli('qwen', server);
 }
 
 /**
@@ -287,6 +390,57 @@ export function toVscodeJson(server: McpServer): string {
   return JSON.stringify(obj, null, 2);
 }
 
+/**
+ * Claude Desktop (`claude_desktop_config.json`) は本体が stdio MCP サーバのみ対応で、
+ * `type: "http"` / `type: "sse"` のリモートエントリは認識されない。mcpm.sh の
+ * `ClaudeDesktopManager.to_client_format` に倣い、`uvx mcp-proxy` で stdio に
+ * 橋渡しした stdio コマンドへ変換する。
+ *
+ * sparfenyuk/mcp-proxy の CLI 仕様 (README) に厳密に合わせるため、mcpm.sh の
+ * 実装にあった以下のバグは修正している:
+ *
+ * - `--transport` 既定が SSE なので、ソースが `transport: "http"` (Streamable HTTP) の
+ *   場合は `--transport streamablehttp` を明示しないと SSE で接続しに行って失敗する。
+ * - `--headers KEY VALUE` は repeatable で、複数ヘッダは `--headers K1 V1
+ *   --headers K2 V2 ...` のように `--headers` ごとに繰り返す必要がある。一度だけ
+ *   `--headers` を出して KEY VALUE を並べると 2 ペア目以降が位置引数として
+ *   解釈されてしまう。
+ *
+ * 参考: mcpm.sh/src/mcpm/clients/managers/claude_desktop.py,
+ *       mcpm.sh/src/mcpm/core/schema.py `RemoteServerConfig.to_mcp_proxy_stdio`,
+ *       https://github.com/sparfenyuk/mcp-proxy README (CLI flags)
+ */
+export function mcpProxyBridge(
+  sourceTransport: 'http' | 'sse',
+  url: string,
+  headers: Record<string, string>,
+): { command: string; args: string[] } {
+  const args: string[] = ['mcp-proxy'];
+  if (sourceTransport === 'http') {
+    args.push('--transport', 'streamablehttp');
+  }
+  for (const [k, v] of Object.entries(headers)) {
+    args.push('--headers', k, v);
+  }
+  args.push(url);
+  return { command: 'uvx', args };
+}
+
+export function toClaudeDesktop(server: McpServer): string {
+  let value: JsonStdio;
+  if (server.transport === 'stdio') {
+    const stdio: JsonStdio = { command: server.command };
+    if (server.args.length > 0) stdio.args = server.args;
+    if (Object.keys(server.env).length > 0) stdio.env = server.env;
+    value = stdio;
+  } else {
+    const bridge = mcpProxyBridge(server.transport, server.url, server.headers);
+    value = { command: bridge.command, args: bridge.args };
+  }
+  const obj = { mcpServers: { [server.name]: value } };
+  return JSON.stringify(obj, null, 2);
+}
+
 // -------------------- TOML --------------------
 
 const TOML_BARE_KEY = /^[A-Za-z0-9_-]+$/;
@@ -361,6 +515,12 @@ export function formatServer(format: FormatId, server: McpServer): string {
       return toClaudeCli(server);
     case 'codex-cli':
       return toCodexCli(server);
+    case 'gemini-cli':
+      return toGeminiCli(server);
+    case 'qwen-cli':
+      return toQwenCli(server);
+    case 'claude-desktop':
+      return toClaudeDesktop(server);
     case 'mcp-json':
       return toMcpJson(server);
     case 'vscode-json':

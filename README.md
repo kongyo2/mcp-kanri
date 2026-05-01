@@ -1,5 +1,7 @@
 # mcp-kanri
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kongyo2/mcp-kanri)
+
 Windows 11 向けの MCP (Model Context Protocol) 設定管理デスクトップアプリです。
 1 つの MCP サーバ登録から Claude Code / Codex / Gemini / Qwen といった各 CLI
 コマンドや、Claude Desktop / Cursor / VS Code 用の `mcpServers` JSON、Codex の

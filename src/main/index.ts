@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import icon from '../../resources/icon.png?asset';
 import { IPC_CHANNELS } from '../shared/ipc.js';
 import { McpServerInputSchema } from '../shared/schema.js';
 import { translate } from '../shared/i18n.js';
@@ -26,6 +27,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: translate(getMainLocale(), 'app.title'),
+    icon,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.mjs'),
       sandbox: false,

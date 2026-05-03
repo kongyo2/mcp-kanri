@@ -25,12 +25,13 @@ export function resolveLocale(input: string | undefined | null): Locale {
 }
 
 /**
- * メッセージキーは翻訳辞書から自動推論する。型安全のため、両ロケールで同じキー集合を
- * 持つことを TypeScript が要求する。
+ * メッセージキーは `ja` の宣言から型推論する。`ja` には明示的な型注釈を付けず、
+ * リテラルなプロパティ名を保持させることで `keyof typeof ja` が文字列リテラル
+ * ユニオンになるようにする。`en` を `Record<MessageKey, string>` で宣言することで、
+ * 片方のロケールにキーを足し忘れた / 多く書いた場合は build 時にエラーになる。
  */
-type Dict = Record<string, string>;
 
-const ja: Dict = {
+const ja = {
   // App / window
   'app.title': 'MCP管理',
   'app.sidebar.title': 'MCP管理',
@@ -151,7 +152,9 @@ const ja: Dict = {
   'bootstrap.rootMissing': 'root 要素が見つかりません',
 };
 
-const en: Dict = {
+export type MessageKey = keyof typeof ja;
+
+const en: Record<MessageKey, string> = {
   // App / window
   'app.title': 'MCP Kanri',
   'app.sidebar.title': 'MCP Kanri',
@@ -271,9 +274,7 @@ const en: Dict = {
   'bootstrap.rootMissing': 'Root element was not found',
 };
 
-const dictionaries: Record<Locale, Dict> = { ja, en };
-
-export type MessageKey = keyof typeof ja;
+const dictionaries: Record<Locale, Record<MessageKey, string>> = { ja, en };
 
 function format(template: string, params?: Record<string, string | number>): string {
   if (params === undefined) return template;

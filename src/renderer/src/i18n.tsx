@@ -28,14 +28,33 @@ function detectInitialLocale(): Locale {
   return resolveLocale(window.navigator.language);
 }
 
+/**
+ * renderer 起動の最初期に main プロセスへロケールを通知し、その後の IPC レスポンス
+ * (例: `kanri.list()` 由来のスキーマ不一致エラー) も同じ言語で返るようにする。
+ *
+ * I18nProvider 内の useEffect だけだと、子コンポーネント (App) の useEffect が
+ * 先に走って `kanri.list()` を投げてしまい、起動直後の破損ストア検出時に
+ * エラーメッセージが OS ロケールで返ってくるレースが起きる。`createRoot.render()`
+ * を呼ぶ前にこの関数を呼んで、初回 IPC より前に locale 設定を main へ送る。
+ */
+export function bootstrapInitialLocale(): Locale {
+  const locale = detectInitialLocale();
+  // setLocale ハンドラ自体は同期的に変数を書き換えるだけなので、IPC キューに
+  // 先に積まれていれば後続の list/get-store-path より先に処理される。
+  void kanri.setLocale(locale);
+  return locale;
+}
+
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 interface ProviderProps {
   readonly children: React.ReactNode;
+  /** `bootstrapInitialLocale()` の結果を渡すと、provider と main が同じ初期値で揃う。 */
+  readonly initialLocale?: Locale;
 }
 
-export function I18nProvider({ children }: ProviderProps): JSX.Element {
-  const [locale, setLocaleState] = useState<Locale>(() => detectInitialLocale());
+export function I18nProvider({ children, initialLocale }: ProviderProps): JSX.Element {
+  const [locale, setLocaleState] = useState<Locale>(() => initialLocale ?? detectInitialLocale());
 
   // 初期ロケールを main プロセスに通知し、storage.ts のエラーメッセージも
   // renderer と同じ言語で返るようにする。

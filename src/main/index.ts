@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../shared/ipc.js';
 import { McpServerInputSchema } from '../shared/schema.js';
+import { translate } from '../shared/i18n.js';
+import { getMainLocale, setMainLocale } from './locale.js';
 import {
   createServer as createServerImpl,
   getStorePath,
@@ -23,7 +25,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    title: 'MCP管理',
+    title: translate(getMainLocale(), 'app.title'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -83,4 +85,7 @@ function registerIpcHandlers(): void {
     await removeServer(id);
   });
   ipcMain.handle(IPC_CHANNELS.getStorePath, () => getStorePath());
+  ipcMain.handle(IPC_CHANNELS.setLocale, (_event, locale: unknown) => {
+    setMainLocale(locale);
+  });
 }

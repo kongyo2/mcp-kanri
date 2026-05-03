@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n';
+
 export interface ArgRow {
   readonly id: string;
   readonly value: string;
@@ -25,6 +27,7 @@ interface Props {
 }
 
 export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="field">
       <label>{label}</label>
@@ -34,7 +37,7 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
           <input
             type="text"
             value={row.value}
-            placeholder={`引数 ${idx + 1}`}
+            placeholder={t('form.args.placeholder', { index: idx + 1 })}
             onChange={(e) => {
               const newValue = e.target.value;
               const next = value.map((r) => (r.id === row.id ? { ...r, value: newValue } : r));
@@ -49,7 +52,7 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
               onChange(next);
             }}
           >
-            削除
+            {t('form.kv.remove')}
           </button>
         </div>
       ))}
@@ -61,7 +64,7 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
           onChange([...value, { id: nextArgRowId(), value: '' }]);
         }}
       >
-        ＋ 引数を追加
+        {t('form.args.add')}
       </button>
     </div>
   );

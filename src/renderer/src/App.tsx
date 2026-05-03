@@ -3,6 +3,8 @@ import { kanri } from './api';
 import type { McpServer, McpServerInput } from '../../shared/schema';
 import { EditorForm } from './components/EditorForm';
 import { Detail } from './components/Detail';
+import { useI18n } from './i18n';
+import { SUPPORTED_LOCALES, type Locale } from '../../shared/i18n';
 
 type Mode = { kind: 'idle' } | { kind: 'create' } | { kind: 'edit'; serverId: string };
 
@@ -12,6 +14,7 @@ interface Toast {
 }
 
 export function App(): JSX.Element {
+  const { t, locale, setLocale } = useI18n();
   const [servers, setServers] = useState<McpServer[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: 'idle' });
@@ -55,6 +58,13 @@ export function App(): JSX.Element {
     void kanri.getStorePath().then(setStorePath);
   }, [reload]);
 
+  // ロケール変更後はサイドバー周りに locale が直接出ることはないが、
+  // main プロセス側のエラーメッセージが変わるため、必要に応じて再取得する用途の
+  // フックポイントとしてここに記述しておく (現状は反映なし)。
+  useEffect(() => {
+    document.title = t('app.title');
+  }, [t]);
+
   const selected = useMemo(
     () => servers.find((s) => s.id === selectedId) ?? null,
     [servers, selectedId],
@@ -69,7 +79,7 @@ export function App(): JSX.Element {
       await reload();
       setSelectedId(created.id);
       setMode({ kind: 'idle' });
-      showToast(`"${created.name}" を登録しました`, 'success');
+      showToast(t('app.toast.created', { name: created.name }), 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), 'error');
     }
@@ -81,19 +91,19 @@ export function App(): JSX.Element {
       await reload();
       setSelectedId(updated.id);
       setMode({ kind: 'idle' });
-      showToast(`"${updated.name}" を更新しました`, 'success');
+      showToast(t('app.toast.updated', { name: updated.name }), 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), 'error');
     }
   };
 
   const handleRemove = async (server: McpServer): Promise<void> => {
-    if (!window.confirm(`"${server.name}" を削除します。よろしいですか?`)) return;
+    if (!window.confirm(t('app.confirm.remove', { name: server.name }))) return;
     try {
       await kanri.remove(server.id);
       await reload();
       if (selectedId === server.id) setSelectedId(null);
-      showToast(`"${server.name}" を削除しました`, 'success');
+      showToast(t('app.toast.removed', { name: server.name }), 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), 'error');
     }
@@ -103,7 +113,7 @@ export function App(): JSX.Element {
     <div className="app">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <span className="sidebar-title">MCP管理</span>
+          <span className="sidebar-title">{t('app.sidebar.title')}</span>
           <button
             type="button"
             className="btn btn-primary btn-small"
@@ -112,15 +122,15 @@ export function App(): JSX.Element {
               setSelectedId(null);
             }}
           >
-            ＋ 新規登録
+            {t('app.sidebar.newServer')}
           </button>
         </div>
         <div className="sidebar-list">
           {servers.length === 0 ? (
             <div className="sidebar-empty">
-              登録済みの MCP はありません。
+              {t('app.sidebar.empty.line1')}
               <br />
-              右上の「＋ 新規登録」から追加してください。
+              {t('app.sidebar.empty.line2')}
             </div>
           ) : (
             servers.map((s) => {
@@ -150,19 +160,37 @@ export function App(): JSX.Element {
           )}
         </div>
         <div className="sidebar-footer">
-          ストア: <code>{storePath}</code>
+          <div className="lang-switcher" aria-label={t('app.language.label')}>
+            <span className="lang-switcher-label">{t('app.language.label')}:</span>
+            {SUPPORTED_LOCALES.map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={`lang-switcher-btn${l === locale ? ' is-active' : ''}`}
+                onClick={() => setLocale(l as Locale)}
+                aria-pressed={l === locale}
+              >
+                {t(`app.language.${l}`)}
+              </button>
+            ))}
+          </div>
+          <div className="sidebar-store">
+            {t('app.sidebar.storeLabel')} <code>{storePath}</code>
+          </div>
         </div>
       </aside>
 
       <main className="main">
         {mode.kind === 'create' ? (
           <>
-            <h2 style={{ marginTop: 0 }}>新規 MCP を登録</h2>
+            <h2 style={{ marginTop: 0 }}>{t('main.create.heading')}</h2>
             <EditorForm onCancel={() => setMode({ kind: 'idle' })} onSubmit={handleCreate} />
           </>
         ) : mode.kind === 'edit' && editingTarget !== null ? (
           <>
-            <h2 style={{ marginTop: 0 }}>"{editingTarget.name}" を編集</h2>
+            <h2 style={{ marginTop: 0 }}>
+              {t('main.edit.heading', { name: editingTarget.name })}
+            </h2>
             <EditorForm
               initial={editingTarget}
               onCancel={() => setMode({ kind: 'idle' })}
@@ -180,14 +208,8 @@ export function App(): JSX.Element {
         ) : (
           <div className="empty-state">
             <div style={{ fontSize: 48 }}>📋</div>
-            <div style={{ fontSize: 16, color: 'var(--text)' }}>MCP を選択してください</div>
-            <div>
-              一つの登録から、Claude / Codex CLI コマンドや
-              <br />
-              `mcpServers` JSON / VS Code `servers` JSON / Codex `config.toml` を
-              <br />
-              切り替えてコピーできます。
-            </div>
+            <div style={{ fontSize: 16, color: 'var(--text)' }}>{t('main.empty.title')}</div>
+            <div>{t('main.empty.body')}</div>
           </div>
         )}
       </main>

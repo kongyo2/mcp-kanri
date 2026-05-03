@@ -8,6 +8,7 @@ import {
 } from '../../../shared/schema';
 import { KeyValueEditor, recordToRows, rowsToRecord, type KeyValueRow } from './KeyValueEditor';
 import { ArgListEditor, stringsToArgRows, argRowsToStrings, type ArgRow } from './ArgListEditor';
+import { useI18n } from '../i18n';
 
 interface Props {
   readonly initial?: McpServer;
@@ -91,6 +92,7 @@ function buildInput(draft: DraftState): McpServerInput {
 }
 
 export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(initial));
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,9 +124,11 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
     }
   };
 
+  // schema.ts は message に i18n キー (例: `validation.nameRequired`) を埋め込んでいる。
+  // 対応するキーがあれば翻訳し、無ければそのまま表示する。
   const validationMessage =
     !isValid && validation.error.issues[0] !== undefined
-      ? validation.error.issues[0].message
+      ? t(validation.error.issues[0].message)
       : null;
 
   return (
@@ -136,22 +140,20 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
     >
       <div className="field">
         <span id={transportId} className="field-label">
-          トランスポート
+          {t('form.transport.label')}
         </span>
-        <span className="hint">
-          stdio はローカルプロセス起動 / http (Streamable) と sse はリモート MCP サーバ
-        </span>
+        <span className="hint">{t('form.transport.hint')}</span>
         <div className="transport-tabs" role="tablist" aria-labelledby={transportId}>
-          {(['stdio', 'http', 'sse'] as const).map((t) => (
+          {(['stdio', 'http', 'sse'] as const).map((tr) => (
             <button
-              key={t}
+              key={tr}
               type="button"
               role="tab"
-              aria-selected={draft.transport === t}
-              className={draft.transport === t ? 'is-active' : ''}
-              onClick={() => setDraft({ ...draft, transport: t })}
+              aria-selected={draft.transport === tr}
+              className={draft.transport === tr ? 'is-active' : ''}
+              onClick={() => setDraft({ ...draft, transport: tr })}
             >
-              {t}
+              {tr}
             </button>
           ))}
         </div>
@@ -159,10 +161,8 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
 
       <div className="field-row">
         <div className="field">
-          <label htmlFor={nameId}>名前 (server-name)</label>
-          <span className="hint">
-            英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`
-          </span>
+          <label htmlFor={nameId}>{t('form.name.label')}</label>
+          <span className="hint">{t('form.name.hint')}</span>
           <input
             id={nameId}
             type="text"
@@ -173,27 +173,27 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
           />
         </div>
         <div className="field" style={{ maxWidth: 220 }}>
-          <label htmlFor={scopeId}>scope (Claude CLI / Codex CLI)</label>
-          <span className="hint">CLI の `--scope` オプションに反映</span>
+          <label htmlFor={scopeId}>{t('form.scope.label')}</label>
+          <span className="hint">{t('form.scope.hint')}</span>
           <select
             id={scopeId}
             value={draft.scope}
             onChange={(e) => setDraft({ ...draft, scope: e.target.value as Scope })}
           >
-            <option value="local">local (現プロジェクトのみ)</option>
-            <option value="project">project (.mcp.json として共有)</option>
-            <option value="user">user (全プロジェクト共通)</option>
+            <option value="local">{t('form.scope.local')}</option>
+            <option value="project">{t('form.scope.project')}</option>
+            <option value="user">{t('form.scope.user')}</option>
           </select>
         </div>
       </div>
 
       <div className="field">
-        <label htmlFor={descriptionId}>説明 (任意)</label>
+        <label htmlFor={descriptionId}>{t('form.description.label')}</label>
         <textarea
           id={descriptionId}
           value={draft.description}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-          placeholder="メモ・用途・参考リンクなど"
+          placeholder={t('form.description.placeholder')}
         />
       </div>
 
@@ -201,7 +201,7 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
         <>
           <div className="field-row">
             <div className="field" style={{ flex: '0 0 220px' }}>
-              <label htmlFor={commandId}>command</label>
+              <label htmlFor={commandId}>{t('form.command.label')}</label>
               <input
                 id={commandId}
                 type="text"
@@ -213,14 +213,14 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
             </div>
           </div>
           <ArgListEditor
-            label="args"
-            hint="例: `-y`, `chrome-devtools-mcp@latest`"
+            label={t('form.args.label')}
+            hint={t('form.args.hint')}
             value={draft.args}
             onChange={(next) => setDraft({ ...draft, args: next })}
           />
           <KeyValueEditor
-            label="env"
-            hint="MCP サーバに渡す環境変数 (API キーなど)"
+            label={t('form.env.label')}
+            hint={t('form.env.hint')}
             rows={draft.envRows}
             onChange={(next) => setDraft({ ...draft, envRows: next })}
           />
@@ -228,11 +228,9 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
       ) : (
         <>
           <div className="field">
-            <label htmlFor={urlId}>URL</label>
+            <label htmlFor={urlId}>{t('form.url.label')}</label>
             <span className="hint">
-              {draft.transport === 'http'
-                ? '例: https://mcp.notion.com/mcp'
-                : '例: https://mcp.asana.com/sse'}
+              {draft.transport === 'http' ? t('form.url.hint.http') : t('form.url.hint.sse')}
             </span>
             <input
               id={urlId}
@@ -244,8 +242,8 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
             />
           </div>
           <KeyValueEditor
-            label="headers"
-            hint="例: `Authorization` = `Bearer xxxxx`"
+            label={t('form.headers.label')}
+            hint={t('form.headers.hint')}
             rows={draft.headerRows}
             onChange={(next) => setDraft({ ...draft, headerRows: next })}
           />
@@ -265,10 +263,10 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="submit" className="btn btn-primary" disabled={!isValid || submitting}>
-          {initial !== undefined ? '更新する' : '登録する'}
+          {initial !== undefined ? t('form.submit.update') : t('form.submit.create')}
         </button>
         <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={submitting}>
-          キャンセル
+          {t('form.cancel')}
         </button>
       </div>
     </form>

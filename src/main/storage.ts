@@ -9,6 +9,8 @@ import {
   type McpServerInput,
   type StoreFile,
 } from '../shared/schema.js';
+import { getMainLocale } from './locale.js';
+import { translate } from '../shared/i18n.js';
 
 /**
  * `userData` ディレクトリ配下に JSON で MCP 登録一覧を永続化する。
@@ -31,6 +33,10 @@ function storePath(): string {
   return cachedPath;
 }
 
+function tr(key: string, params?: Record<string, string | number>): string {
+  return translate(getMainLocale(), key, params);
+}
+
 /**
  * ストアを読み込む。
  *
@@ -51,7 +57,7 @@ async function readStore(): Promise<StoreFile> {
     buf = await fs.readFile(p, 'utf8');
   } catch (err) {
     if (isNotFound(err)) return { version: 1, servers: [] };
-    throw new Error(`MCP 設定ストア (${p}) の読込に失敗しました: ${describeError(err)}`, {
+    throw new Error(tr('storage.error.readFailed', { path: p, message: describeError(err) }), {
       cause: err,
     });
   }
@@ -61,10 +67,9 @@ async function readStore(): Promise<StoreFile> {
     parsed = JSON.parse(buf);
   } catch (err) {
     await quarantineCorruptStore(p, 'json-parse-error');
-    throw new Error(
-      `MCP 設定ストア (${p}) は JSON として解釈できませんでした。元ファイルは隣接の .broken-* に退避しました: ${describeError(err)}`,
-      { cause: err },
-    );
+    throw new Error(tr('storage.error.jsonParse', { path: p, message: describeError(err) }), {
+      cause: err,
+    });
   }
 
   const result = StoreFileSchema.safeParse(parsed);
@@ -72,7 +77,7 @@ async function readStore(): Promise<StoreFile> {
 
   await quarantineCorruptStore(p, 'schema-mismatch');
   throw new Error(
-    `MCP 設定ストア (${p}) のスキーマが不正です。元ファイルは隣接の .broken-* に退避しました: ${result.error.message}`,
+    tr('storage.error.schemaMismatch', { path: p, message: result.error.message }),
   );
 }
 
@@ -118,7 +123,7 @@ export async function listServers(): Promise<McpServer[]> {
 export async function createServer(input: McpServerInput): Promise<McpServer> {
   const store = await readStore();
   if (store.servers.some((s) => s.name === input.name)) {
-    throw new Error(`同名のサーバ "${input.name}" が既に登録されています`);
+    throw new Error(tr('storage.error.duplicateName', { name: input.name }));
   }
   const now = Date.now();
   const candidate = { ...input, id: randomUUID(), createdAt: now, updatedAt: now };
@@ -131,10 +136,10 @@ export async function updateServer(id: string, input: McpServerInput): Promise<M
   const store = await readStore();
   const existing = store.servers.find((s) => s.id === id);
   if (existing === undefined) {
-    throw new Error(`id=${id} のサーバが見つかりません`);
+    throw new Error(tr('storage.error.notFound', { id }));
   }
   if (store.servers.some((s) => s.id !== id && s.name === input.name)) {
-    throw new Error(`同名のサーバ "${input.name}" が既に登録されています`);
+    throw new Error(tr('storage.error.duplicateName', { name: input.name }));
   }
   const candidate = {
     ...input,

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../i18n';
 
 interface Props {
   readonly text: string;
 }
 
 export function CopyableBlock({ text }: Props): JSX.Element {
+  const { t } = useI18n();
   const [copied, setCopied] = useState<boolean>(false);
   const resetTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
@@ -48,7 +50,7 @@ export function CopyableBlock({ text }: Props): JSX.Element {
           void onCopy();
         }}
       >
-        {copied ? 'コピーしました' : 'コピー'}
+        {copied ? t('copy.copied') : t('copy.button')}
       </button>
       <code>{text}</code>
     </pre>

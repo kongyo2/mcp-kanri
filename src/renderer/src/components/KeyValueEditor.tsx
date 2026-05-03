@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n';
+
 export interface KeyValueRow {
   readonly id: string;
   readonly key: string;
@@ -34,6 +36,7 @@ export function rowsToRecord(rows: readonly KeyValueRow[]): Record<string, strin
 }
 
 export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="field">
       <label>{label}</label>
@@ -68,7 +71,7 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
               onChange([...next]);
             }}
           >
-            削除
+            {t('form.kv.remove')}
           </button>
         </div>
       ))}
@@ -80,7 +83,7 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
           onChange([...rows, { id: nextKvRowId(), key: '', value: '' }]);
         }}
       >
-        ＋ 追加
+        {t('form.kv.add')}
       </button>
     </div>
   );

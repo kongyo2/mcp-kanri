@@ -1,4 +1,5 @@
 import type { McpServer, Scope } from './schema.js';
+import { translate, type Locale } from './i18n.js';
 
 /**
  * 各種 MCP クライアントへ貼り付けるためのフォーマット出力。
@@ -39,59 +40,60 @@ export type FormatId =
 
 export interface FormatDescriptor {
   readonly id: FormatId;
-  readonly title: string;
-  readonly subtitle: string;
+  /** タブ表示用ラベル。renderer 側で i18n 翻訳済み文字列に解決する。 */
+  readonly titleKey: string;
+  /** タブ下に表示される補足文。renderer 側で i18n 翻訳済み文字列に解決する。 */
+  readonly subtitleKey: string;
   readonly language: 'bash' | 'json' | 'toml';
 }
 
 export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
   {
     id: 'claude-cli',
-    title: 'Claude Code (CLI)',
-    subtitle: '`claude mcp add` コマンド形式',
+    titleKey: 'format.claude-cli.title',
+    subtitleKey: 'format.claude-cli.subtitle',
     language: 'bash',
   },
   {
     id: 'codex-cli',
-    title: 'Codex CLI',
-    subtitle: '`codex mcp add` コマンド形式',
+    titleKey: 'format.codex-cli.title',
+    subtitleKey: 'format.codex-cli.subtitle',
     language: 'bash',
   },
   {
     id: 'gemini-cli',
-    title: 'Gemini CLI',
-    subtitle: '`gemini mcp add` コマンド形式 (settings.json: `~/.gemini/settings.json`)',
+    titleKey: 'format.gemini-cli.title',
+    subtitleKey: 'format.gemini-cli.subtitle',
     language: 'bash',
   },
   {
     id: 'qwen-cli',
-    title: 'Qwen Code',
-    subtitle: '`qwen mcp add` コマンド形式 (settings.json: `~/.qwen/settings.json`)',
+    titleKey: 'format.qwen-cli.title',
+    subtitleKey: 'format.qwen-cli.subtitle',
     language: 'bash',
   },
   {
     id: 'claude-desktop',
-    title: 'Claude Desktop',
-    subtitle:
-      '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
+    titleKey: 'format.claude-desktop.title',
+    subtitleKey: 'format.claude-desktop.subtitle',
     language: 'json',
   },
   {
     id: 'mcp-json',
-    title: 'mcpServers JSON',
-    subtitle: 'Cursor / Windsurf / Cline / Gemini など共通形式',
+    titleKey: 'format.mcp-json.title',
+    subtitleKey: 'format.mcp-json.subtitle',
     language: 'json',
   },
   {
     id: 'vscode-json',
-    title: 'VS Code mcp.json',
-    subtitle: 'トップレベルキーは `servers`',
+    titleKey: 'format.vscode-json.title',
+    subtitleKey: 'format.vscode-json.subtitle',
     language: 'json',
   },
   {
     id: 'codex-toml',
-    title: 'Codex config.toml',
-    subtitle: '`~/.codex/config.toml` 用 TOML 抜粋',
+    titleKey: 'format.codex-toml.title',
+    subtitleKey: 'format.codex-toml.subtitle',
     language: 'toml',
   },
 ];
@@ -149,7 +151,7 @@ export function toClaudeCli(server: McpServer): string {
   return parts.filter(Boolean).join(' ');
 }
 
-export function toCodexCli(server: McpServer): string {
+export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {
   // Codex CLI が `codex mcp add` でサポートする transport は stdio と
   // streamable_http のみ (sse は未対応)。
   // 参考: openai/codex `codex-rs/cli/src/mcp_cmd.rs` の AddMcpTransportArgs。
@@ -180,9 +182,9 @@ export function toCodexCli(server: McpServer): string {
     const extraHeaders = stripBearerHeader(server.headers, bearerEnvVar !== null);
     if (Object.keys(extraHeaders).length > 0) {
       lines.push(
-        '# 注: 任意の HTTP ヘッダ (上記以外) は `codex mcp add` の CLI フラグでは渡せません。',
-        '#     右の "Codex config.toml" タブの `http_headers` をそのまま',
-        '#     ~/.codex/config.toml の該当 [mcp_servers.<name>] ブロックに追記してください。',
+        translate(locale, 'converters.codexCli.extraHeadersNote.line1'),
+        translate(locale, 'converters.codexCli.extraHeadersNote.line2'),
+        translate(locale, 'converters.codexCli.extraHeadersNote.line3'),
       );
     }
     return lines.join('\n');
@@ -509,12 +511,12 @@ export function toCodexToml(server: McpServer): string {
 
 // -------------------- dispatcher --------------------
 
-export function formatServer(format: FormatId, server: McpServer): string {
+export function formatServer(format: FormatId, server: McpServer, locale: Locale = 'en'): string {
   switch (format) {
     case 'claude-cli':
       return toClaudeCli(server);
     case 'codex-cli':
-      return toCodexCli(server);
+      return toCodexCli(server, locale);
     case 'gemini-cli':
       return toGeminiCli(server);
     case 'qwen-cli':

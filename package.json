@@ -1,7 +1,7 @@
 {
   "name": "mcp-kanri",
-  "version": "0.3.0",
-  "description": "MCP 管理アプリ — 1 つの MCP 登録から Claude / Codex CLI コマンドや mcpServers JSON を生成・コピー出来る Windows 11 向けデスクトップアプリ",
+  "version": "0.4.0",
+  "description": "MCP Kanri — Windows 11 desktop app to generate and copy Claude / Codex / Gemini / Qwen CLI commands and mcpServers JSON from a single MCP server registration. Bilingual UI (Japanese / English).",
   "main": "out/main/index.js",
   "author": "kongyo2",
   "license": "MIT",

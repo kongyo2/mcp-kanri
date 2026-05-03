@@ -24,12 +24,9 @@ import { z } from 'zod';
  */
 const NameSchema = z
   .string()
-  .min(1, 'name は必須です')
-  .max(64, 'name は 64 文字以内で指定してください')
-  .regex(
-    /^[A-Za-z0-9_-]+$/,
-    'name は英数字 / _ / - のみ使用できます (Codex CLI / TOML bare key 互換)',
-  );
+  .min(1, 'validation.nameRequired')
+  .max(64, 'validation.nameMaxLength')
+  .regex(/^[A-Za-z0-9_-]+$/, 'validation.namePattern');
 
 const KeyValueRecord = z.record(z.string(), z.string());
 
@@ -38,7 +35,7 @@ const StdioServerSchema = z.object({
   name: NameSchema,
   description: z.string().optional().default(''),
   transport: z.literal('stdio'),
-  command: z.string().min(1, 'command は必須です'),
+  command: z.string().min(1, 'validation.commandRequired'),
   args: z.array(z.string()).default([]),
   env: KeyValueRecord.default({}),
   scope: z.enum(['local', 'project', 'user']).default('user'),
@@ -51,7 +48,7 @@ const HttpServerSchema = z.object({
   name: NameSchema,
   description: z.string().optional().default(''),
   transport: z.literal('http'),
-  url: z.string().url('URL の形式が正しくありません'),
+  url: z.string().url('validation.urlInvalid'),
   headers: KeyValueRecord.default({}),
   scope: z.enum(['local', 'project', 'user']).default('user'),
   createdAt: z.number(),
@@ -63,7 +60,7 @@ const SseServerSchema = z.object({
   name: NameSchema,
   description: z.string().optional().default(''),
   transport: z.literal('sse'),
-  url: z.string().url('URL の形式が正しくありません'),
+  url: z.string().url('validation.urlInvalid'),
   headers: KeyValueRecord.default({}),
   scope: z.enum(['local', 'project', 'user']).default('user'),
   createdAt: z.number(),

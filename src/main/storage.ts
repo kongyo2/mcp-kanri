@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
+import type { ZodError } from 'zod';
 import {
   McpServerSchema,
   StoreFileSchema,
@@ -77,8 +78,23 @@ async function readStore(): Promise<StoreFile> {
 
   await quarantineCorruptStore(p, 'schema-mismatch');
   throw new Error(
-    tr('storage.error.schemaMismatch', { path: p, message: result.error.message }),
+    tr('storage.error.schemaMismatch', { path: p, message: formatZodIssues(result.error) }),
   );
+}
+
+/**
+ * Zod のエラーメッセージは schema.ts で `validation.namePattern` 等の i18n キー
+ * として埋め込まれているため、ユーザに見せる前に必ずロケール解決する。
+ * パス情報も合わせて読み取れるよう `path: translatedMessage` 形式で結合する。
+ */
+function formatZodIssues(error: ZodError): string {
+  return error.issues
+    .map((issue) => {
+      const translated = tr(issue.message);
+      const issuePath = issue.path.length > 0 ? issue.path.join('.') : '<root>';
+      return `${issuePath}: ${translated}`;
+    })
+    .join('; ');
 }
 
 async function quarantineCorruptStore(p: string, reason: string): Promise<void> {

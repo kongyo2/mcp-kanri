@@ -188,9 +188,7 @@ export function App(): JSX.Element {
           </>
         ) : mode.kind === 'edit' && editingTarget !== null ? (
           <>
-            <h2 style={{ marginTop: 0 }}>
-              {t('main.edit.heading', { name: editingTarget.name })}
-            </h2>
+            <h2 style={{ marginTop: 0 }}>{t('main.edit.heading', { name: editingTarget.name })}</h2>
             <EditorForm
               initial={editingTarget}
               onCancel={() => setMode({ kind: 'idle' })}

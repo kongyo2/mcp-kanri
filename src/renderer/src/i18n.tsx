@@ -65,10 +65,7 @@ export function I18nProvider({ children }: ProviderProps): JSX.Element {
     [locale],
   );
 
-  const value = useMemo<I18nContextValue>(
-    () => ({ locale, setLocale, t }),
-    [locale, setLocale, t],
-  );
+  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

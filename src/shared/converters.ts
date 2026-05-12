@@ -19,13 +19,20 @@ import { translate, type Locale } from './i18n.js';
  * - vscode-json     : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
  * - codex-toml      : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
  *                     (キーは `mcp_servers` で snake_case)
+ * - antigravity-json: Google Antigravity Editor 用 `~/.gemini/antigravity/mcp_config.json`。
+ *                     stdio は `command` + `args` + `env` (+ `cwd`)、リモートは
+ *                     `serverUrl` (camelCase で `url` ではない) + `headers`。
+ *                     ネイティブ対応するリモートは Streamable HTTP のみで、SSE は
+ *                     未対応のため `npx -y mcp-remote` で stdio に橋渡しする。
+ *                     (https://antigravity.google/docs/mcp)
  *
  * 参考: mcp-router/apps/electron/src/main/modules/mcp-apps-manager/app-paths.ts,
  *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,claude_code,codex_cli,vscode,gemini_cli,qwen_cli}.py,
  *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
  *       https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/,
  *       https://code.claude.com/docs/en/mcp.md,
- *       https://modelcontextprotocol.io/llms-full.txt
+ *       https://modelcontextprotocol.io/llms-full.txt,
+ *       https://antigravity.google/docs/mcp
  */
 
 export type FormatId =
@@ -36,7 +43,8 @@ export type FormatId =
   | 'claude-desktop'
   | 'mcp-json'
   | 'vscode-json'
-  | 'codex-toml';
+  | 'codex-toml'
+  | 'antigravity-json';
 
 export interface FormatDescriptor {
   readonly id: FormatId;
@@ -95,6 +103,12 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     titleKey: 'format.codex-toml.title',
     subtitleKey: 'format.codex-toml.subtitle',
     language: 'toml',
+  },
+  {
+    id: 'antigravity-json',
+    titleKey: 'format.antigravity-json.title',
+    subtitleKey: 'format.antigravity-json.subtitle',
+    language: 'json',
   },
 ];
 
@@ -509,6 +523,61 @@ export function toCodexToml(server: McpServer): string {
   return lines.join('\n') + '\n';
 }
 
+// -------------------- Antigravity --------------------
+
+/**
+ * Google Antigravity Editor 向けの `mcp_config.json` (`~/.gemini/antigravity/mcp_config.json`)
+ * を生成する。
+ *
+ * 仕様 (https://antigravity.google/docs/mcp):
+ * - トップレベルキーは Claude Desktop と同じ `mcpServers`。
+ * - サーバごとに以下のいずれかでトランスポートが決まる:
+ *   - `command` (string)  → stdio (path to executable)
+ *   - `serverUrl` (string) → Streamable HTTP リモート
+ *   - **重要**: キー名は `serverUrl` (camelCase の U) で、`url` ではない。
+ *     `mcpServers JSON` / VS Code 形式とは異なる点なので注意。
+ * - stdio オプショナル: `args` (string[]), `env` (object), `cwd` (string)
+ * - リモートオプショナル: `headers` (object), `authProviderType`
+ *   ("google_credentials" のみ), `oauth` ({ clientId, clientSecret })
+ * - 共通オプショナル: `disabled` (boolean), `disabledTools` (string[])
+ * - SSE はネイティブ未対応のため、SSE 登録は `npx -y mcp-remote` で stdio に
+ *   橋渡しした形 (Codex CLI と同じパターン) で出力する。
+ */
+interface AntigravityStdio {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+interface AntigravityHttp {
+  serverUrl: string;
+  headers?: Record<string, string>;
+}
+
+function serverToAntigravityValue(server: McpServer): AntigravityStdio | AntigravityHttp {
+  if (server.transport === 'stdio') {
+    const result: AntigravityStdio = { command: server.command };
+    if (server.args.length > 0) result.args = server.args;
+    if (Object.keys(server.env).length > 0) result.env = server.env;
+    return result;
+  }
+  if (server.transport === 'http') {
+    const result: AntigravityHttp = { serverUrl: server.url };
+    if (Object.keys(server.headers).length > 0) result.headers = server.headers;
+    return result;
+  }
+  // sse: Antigravity は Streamable HTTP のみネイティブ対応するため、SSE は
+  // mcp-remote で stdio に橋渡しした形で書き出す。
+  const bridge = mcpRemoteBridge(server.url, server.headers);
+  const result: AntigravityStdio = { command: bridge.command, args: bridge.args };
+  return result;
+}
+
+export function toAntigravityJson(server: McpServer): string {
+  const value = serverToAntigravityValue(server);
+  const obj = { mcpServers: { [server.name]: value } };
+  return JSON.stringify(obj, null, 2);
+}
+
 // -------------------- dispatcher --------------------
 
 export function formatServer(format: FormatId, server: McpServer, locale: Locale = 'en'): string {
@@ -529,5 +598,7 @@ export function formatServer(format: FormatId, server: McpServer, locale: Locale
       return toVscodeJson(server);
     case 'codex-toml':
       return toCodexToml(server);
+    case 'antigravity-json':
+      return toAntigravityJson(server);
   }
 }

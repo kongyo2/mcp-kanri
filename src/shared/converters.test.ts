@@ -4,6 +4,7 @@ import {
   formatServer,
   mcpProxyBridge,
   quoteShell,
+  toAntigravityJson,
   toClaudeCli,
   toClaudeDesktop,
   toCodexCli,
@@ -486,6 +487,135 @@ describe('mcpProxyBridge', () => {
   });
 });
 
+describe('toAntigravityJson', () => {
+  it('emits stdio entry with command/args/env (no type field)', () => {
+    const parsed: unknown = JSON.parse(toAntigravityJson(stdioWithEnv));
+    expect(parsed).toEqual({
+      mcpServers: {
+        airtable: {
+          command: 'npx',
+          args: ['-y', 'airtable-mcp-server'],
+          env: { AIRTABLE_API_KEY: 'YOUR_KEY' },
+        },
+      },
+    });
+  });
+
+  it('omits args/env when empty for stdio', () => {
+    const minimal: McpServer = { ...stdioBase, args: [], env: {} };
+    const parsed: unknown = JSON.parse(toAntigravityJson(minimal));
+    expect(parsed).toEqual({
+      mcpServers: {
+        'chrome-devtools': { command: 'npx' },
+      },
+    });
+  });
+
+  it('uses serverUrl (camelCase) — not url — for http (Streamable HTTP) servers', () => {
+    // Antigravity の独特な仕様: リモート URL のキー名は `serverUrl` で、
+    // mcpServers JSON / VS Code 形式の `url` とは異なる。
+    // 参考: https://antigravity.google/docs/mcp の "Transport (one required)" の項。
+    const parsed: unknown = JSON.parse(toAntigravityJson(httpServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          serverUrl: 'https://mcp.notion.com/mcp',
+          headers: { Authorization: 'Bearer xyz' },
+        },
+      },
+    });
+  });
+
+  it('omits headers when empty for http servers', () => {
+    const noHeaders: McpServer = { ...httpServer, headers: {} };
+    const parsed: unknown = JSON.parse(toAntigravityJson(noHeaders));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: { serverUrl: 'https://mcp.notion.com/mcp' },
+      },
+    });
+  });
+
+  it('does NOT emit a type field for http (transport is inferred from serverUrl presence)', () => {
+    const text = toAntigravityJson(httpServer);
+    expect(text).not.toContain('"type"');
+  });
+
+  it('bridges SSE servers via npx -y mcp-remote (Antigravity does not support SSE natively)', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: {},
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const parsed: unknown = JSON.parse(toAntigravityJson(sseServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          command: 'npx',
+          args: ['-y', 'mcp-remote', 'https://mcp.notion.com/sse'],
+        },
+      },
+    });
+  });
+
+  it('passes SSE headers through to mcp-remote --header args in the bridge', () => {
+    const sseServer: McpServer = {
+      id: 'srv-4',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: { Authorization: 'Bearer xyz' },
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const parsed: unknown = JSON.parse(toAntigravityJson(sseServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          command: 'npx',
+          args: [
+            '-y',
+            'mcp-remote',
+            'https://mcp.notion.com/sse',
+            '--header',
+            'Authorization: Bearer xyz',
+          ],
+        },
+      },
+    });
+  });
+
+  it('emits literal Authorization: Bearer ${ENV_VAR} headers as-is (Antigravity does not interpolate)', () => {
+    // Antigravity の docs にあるサンプルは `"Authorization": "Bearer YOUR_API_TOKEN"`
+    // のようなリテラル値で、Codex の `bearer_token_env_var` のような env 名指定の
+    // 仕組みはない。`${ENV_VAR}` 形式の値はリテラル文字列としてそのまま書き出す。
+    const tokenServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Bearer ${NOTION_TOKEN}' },
+    };
+    const parsed = JSON.parse(toAntigravityJson(tokenServer)) as {
+      mcpServers: { notion: { headers: Record<string, string> } };
+    };
+    expect(parsed.mcpServers.notion.headers).toEqual({
+      Authorization: 'Bearer ${NOTION_TOKEN}',
+    });
+  });
+
+  it('produces valid JSON for every server type', () => {
+    expect(() => JSON.parse(toAntigravityJson(stdioBase))).not.toThrow();
+    expect(() => JSON.parse(toAntigravityJson(stdioWithEnv))).not.toThrow();
+    expect(() => JSON.parse(toAntigravityJson(httpServer))).not.toThrow();
+  });
+});
+
 describe('formatServer dispatch', () => {
   it('returns correct format for each id', () => {
     expect(formatServer('claude-cli', stdioBase)).toContain('claude mcp add');
@@ -496,5 +626,8 @@ describe('formatServer dispatch', () => {
     expect(formatServer('mcp-json', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('vscode-json', stdioBase)).toContain('"servers"');
     expect(formatServer('codex-toml', stdioBase)).toContain('[mcp_servers.');
+    expect(formatServer('antigravity-json', stdioBase)).toContain('"mcpServers"');
+    // Antigravity の HTTP は `serverUrl` キーを使う点を dispatch でも確認する。
+    expect(formatServer('antigravity-json', httpServer)).toContain('"serverUrl"');
   });
 });

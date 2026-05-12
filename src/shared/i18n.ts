@@ -131,6 +131,9 @@ const ja = {
   'format.vscode-json.subtitle': 'トップレベルキーは `servers`',
   'format.codex-toml.title': 'Codex config.toml',
   'format.codex-toml.subtitle': '`~/.codex/config.toml` 用 TOML 抜粋',
+  'format.antigravity-json.title': 'Antigravity mcp_config.json',
+  'format.antigravity-json.subtitle':
+    '`~/.gemini/antigravity/mcp_config.json` (リモートは `serverUrl` キー / SSE は npx mcp-remote でブリッジ)',
 
   // Codex CLI inline note (emitted by converters when extra HTTP headers present)
   'converters.codexCli.extraHeadersNote.line1':
@@ -255,6 +258,9 @@ const en: Record<MessageKey, string> = {
   'format.vscode-json.subtitle': 'Top-level key is `servers`',
   'format.codex-toml.title': 'Codex config.toml',
   'format.codex-toml.subtitle': 'TOML excerpt for `~/.codex/config.toml`',
+  'format.antigravity-json.title': 'Antigravity mcp_config.json',
+  'format.antigravity-json.subtitle':
+    '`~/.gemini/antigravity/mcp_config.json` (remote uses `serverUrl` key; SSE bridged via npx mcp-remote)',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: arbitrary HTTP headers (other than the above) cannot be passed via `codex mcp add` CLI flags.',

@@ -1,5 +1,10 @@
 # mcp-kanri
 
+[![CI](https://github.com/kongyo2/mcp-kanri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongyo2/mcp-kanri/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/kongyo2/mcp-kanri?sort=semver&display_name=tag)](https://github.com/kongyo2/mcp-kanri/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kongyo2/mcp-kanri/total)](https://github.com/kongyo2/mcp-kanri/releases)
+[![License: MIT](https://img.shields.io/github/license/kongyo2/mcp-kanri)](LICENSE)
+[![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D6?logo=windows11&logoColor=white)](https://github.com/kongyo2/mcp-kanri/releases/latest)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kongyo2/mcp-kanri)
 
 > **Languages:** [日本語](#日本語) / [English](#english)

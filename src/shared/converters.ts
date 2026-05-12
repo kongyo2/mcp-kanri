@@ -19,13 +19,29 @@ import { translate, type Locale } from './i18n.js';
  * - vscode-json     : VS Code 用 `{"servers": {...}}` JSON (キー名が異なる)
  * - codex-toml      : Codex CLI / Codex IDE 用 `~/.codex/config.toml` 抜粋
  *                     (キーは `mcp_servers` で snake_case)
+ * - antigravity-json: Google Antigravity Editor 用 `~/.gemini/antigravity/mcp_config.json`。
+ *                     stdio は `command` + `args` + `env` (+ `cwd`)、リモートは
+ *                     `serverUrl` (camelCase で `url` ではない) + `headers`。
+ *                     ネイティブ対応するリモートは Streamable HTTP のみで、SSE は
+ *                     未対応のため `npx -y mcp-remote` で stdio に橋渡しする。
+ *                     (https://antigravity.google/docs/mcp)
+ * - cline-json      : Cline (VS Code 拡張 `saoudrizwan.claude-dev`) 用
+ *                     `cline_mcp_settings.json` 抜粋。トップレベルは Claude Desktop と
+ *                     同じ `mcpServers` だが、サーバごとの `type` リテラルが他と異なり:
+ *                     - stdio          → `"stdio"`
+ *                     - SSE            → `"sse"`
+ *                     - Streamable HTTP → **`"streamableHttp"`** (camelCase, `"http"` ではない)
+ *                     cline/src/services/mcp/schemas.ts の `ServerConfigSchema` 参照。
  *
  * 参考: mcp-router/apps/electron/src/main/modules/mcp-apps-manager/app-paths.ts,
  *       mcpm.sh/src/mcpm/clients/managers/{claude_desktop,claude_code,codex_cli,vscode,gemini_cli,qwen_cli}.py,
  *       google-gemini/gemini-cli/docs/tools/mcp-server.md,
  *       https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/,
  *       https://code.claude.com/docs/en/mcp.md,
- *       https://modelcontextprotocol.io/llms-full.txt
+ *       https://modelcontextprotocol.io/llms-full.txt,
+ *       https://antigravity.google/docs/mcp,
+ *       https://github.com/cline/cline (src/services/mcp/schemas.ts,
+ *         src/core/storage/disk.ts:GlobalFileNames.mcpSettings)
  */
 
 export type FormatId =
@@ -36,7 +52,9 @@ export type FormatId =
   | 'claude-desktop'
   | 'mcp-json'
   | 'vscode-json'
-  | 'codex-toml';
+  | 'codex-toml'
+  | 'antigravity-json'
+  | 'cline-json';
 
 export interface FormatDescriptor {
   readonly id: FormatId;
@@ -95,6 +113,18 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     titleKey: 'format.codex-toml.title',
     subtitleKey: 'format.codex-toml.subtitle',
     language: 'toml',
+  },
+  {
+    id: 'antigravity-json',
+    titleKey: 'format.antigravity-json.title',
+    subtitleKey: 'format.antigravity-json.subtitle',
+    language: 'json',
+  },
+  {
+    id: 'cline-json',
+    titleKey: 'format.cline-json.title',
+    subtitleKey: 'format.cline-json.subtitle',
+    language: 'json',
   },
 ];
 
@@ -509,6 +539,131 @@ export function toCodexToml(server: McpServer): string {
   return lines.join('\n') + '\n';
 }
 
+// -------------------- Antigravity --------------------
+
+/**
+ * Google Antigravity Editor 向けの `mcp_config.json` (`~/.gemini/antigravity/mcp_config.json`)
+ * を生成する。
+ *
+ * 仕様 (https://antigravity.google/docs/mcp):
+ * - トップレベルキーは Claude Desktop と同じ `mcpServers`。
+ * - サーバごとに以下のいずれかでトランスポートが決まる:
+ *   - `command` (string)  → stdio (path to executable)
+ *   - `serverUrl` (string) → Streamable HTTP リモート
+ *   - **重要**: キー名は `serverUrl` (camelCase の U) で、`url` ではない。
+ *     `mcpServers JSON` / VS Code 形式とは異なる点なので注意。
+ * - stdio オプショナル: `args` (string[]), `env` (object), `cwd` (string)
+ * - リモートオプショナル: `headers` (object), `authProviderType`
+ *   ("google_credentials" のみ), `oauth` ({ clientId, clientSecret })
+ * - 共通オプショナル: `disabled` (boolean), `disabledTools` (string[])
+ * - SSE はネイティブ未対応のため、SSE 登録は `npx -y mcp-remote` で stdio に
+ *   橋渡しした形 (Codex CLI と同じパターン) で出力する。
+ */
+interface AntigravityStdio {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+interface AntigravityHttp {
+  serverUrl: string;
+  headers?: Record<string, string>;
+}
+
+function serverToAntigravityValue(server: McpServer): AntigravityStdio | AntigravityHttp {
+  if (server.transport === 'stdio') {
+    const result: AntigravityStdio = { command: server.command };
+    if (server.args.length > 0) result.args = server.args;
+    if (Object.keys(server.env).length > 0) result.env = server.env;
+    return result;
+  }
+  if (server.transport === 'http') {
+    const result: AntigravityHttp = { serverUrl: server.url };
+    if (Object.keys(server.headers).length > 0) result.headers = server.headers;
+    return result;
+  }
+  // sse: Antigravity は Streamable HTTP のみネイティブ対応するため、SSE は
+  // mcp-remote で stdio に橋渡しした形で書き出す。
+  const bridge = mcpRemoteBridge(server.url, server.headers);
+  const result: AntigravityStdio = { command: bridge.command, args: bridge.args };
+  return result;
+}
+
+export function toAntigravityJson(server: McpServer): string {
+  const value = serverToAntigravityValue(server);
+  const obj = { mcpServers: { [server.name]: value } };
+  return JSON.stringify(obj, null, 2);
+}
+
+// -------------------- Cline --------------------
+
+/**
+ * Cline (VS Code 拡張 `saoudrizwan.claude-dev`) の `cline_mcp_settings.json`
+ * (VS Code globalStorage 配下) に貼り付ける JSON を生成する。
+ *
+ * 仕様 (cline/src/services/mcp/schemas.ts):
+ * - トップレベルキーは `mcpServers` (Claude Desktop と同じ)。
+ * - 各サーバには `type` リテラルが必要で、Cline 独自の値を取る:
+ *   - stdio          → `"stdio"`
+ *   - SSE            → `"sse"`
+ *   - Streamable HTTP → **`"streamableHttp"`** (Cursor / VS Code の `"http"` ではない)
+ * - フィールドは透過的:
+ *   - stdio: `command`, `args` (任意), `env` (任意), `cwd` (任意)
+ *   - sse / streamableHttp: `url`, `headers` (任意)
+ * - 共通オプショナル: `autoApprove` (string[]), `disabled` (boolean),
+ *   `timeout` (秒, default 60 / 最小 1)。デフォルト値はファイル側で省略可能なので
+ *   常時の出力はしない (mcpServers JSON / Claude Desktop の出力と整合)。
+ *
+ * 重要: 旧バージョンの Cline は `transportType` という別フィールド名で transport を
+ * 持っていた (`"stdio"` / `"sse"` / `"http"`)。schemas.ts の `.transform()` で
+ * 互換変換されるが、新規生成は新フィールド名 `type` を使う。
+ *
+ * 重要 2: 現行スキーマの discriminated union は `sse` が `streamableHttp` より先に
+ * 並んでおり、`type` を省略した URL 系設定は **SSE として解釈される** (後方互換)。
+ * そのため Streamable HTTP は `type` を必ず明示する必要がある。stdio / sse でも
+ * 明確化のため `type` を常に出力する。
+ *
+ * 参考:
+ *   - cline/src/services/mcp/schemas.ts `ServerConfigSchema` (z.discriminatedUnion)
+ *   - cline/src/services/mcp/McpHub.ts `addRemoteServer` (defaults: `type:"streamableHttp"`,
+ *     `disabled:false`, `autoApprove:[]`)
+ *   - cline/src/core/storage/disk.ts `GlobalFileNames.mcpSettings = "cline_mcp_settings.json"`
+ *   - cline/docs/mcp/adding-and-configuring-servers.mdx
+ */
+interface ClineStdio {
+  type: 'stdio';
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+interface ClineHttpLike {
+  type: 'sse' | 'streamableHttp';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+function serverToClineValue(server: McpServer): ClineStdio | ClineHttpLike {
+  if (server.transport === 'stdio') {
+    const result: ClineStdio = { type: 'stdio', command: server.command };
+    if (server.args.length > 0) result.args = server.args;
+    if (Object.keys(server.env).length > 0) result.env = server.env;
+    return result;
+  }
+  // Cline の type リテラルは `streamableHttp` (camelCase) であって `http` ではない。
+  // mcpServers JSON / VS Code は `"http"` を使うため、Cline 専用に書き換える。
+  const result: ClineHttpLike = {
+    type: server.transport === 'http' ? 'streamableHttp' : 'sse',
+    url: server.url,
+  };
+  if (Object.keys(server.headers).length > 0) result.headers = server.headers;
+  return result;
+}
+
+export function toClineJson(server: McpServer): string {
+  const value = serverToClineValue(server);
+  const obj = { mcpServers: { [server.name]: value } };
+  return JSON.stringify(obj, null, 2);
+}
+
 // -------------------- dispatcher --------------------
 
 export function formatServer(format: FormatId, server: McpServer, locale: Locale = 'en'): string {
@@ -529,5 +684,9 @@ export function formatServer(format: FormatId, server: McpServer, locale: Locale
       return toVscodeJson(server);
     case 'codex-toml':
       return toCodexToml(server);
+    case 'antigravity-json':
+      return toAntigravityJson(server);
+    case 'cline-json':
+      return toClineJson(server);
   }
 }

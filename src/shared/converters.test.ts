@@ -7,6 +7,7 @@ import {
   toAntigravityJson,
   toClaudeCli,
   toClaudeDesktop,
+  toClineJson,
   toCodexCli,
   toCodexToml,
   toGeminiCli,
@@ -616,6 +617,131 @@ describe('toAntigravityJson', () => {
   });
 });
 
+describe('toClineJson', () => {
+  it('emits stdio entry with explicit type:"stdio"', () => {
+    // Cline スキーマでは type は optional だが、明確化のため常に出力する。
+    // 参考: cline/src/services/mcp/schemas.ts `ServerConfigSchema`
+    const parsed: unknown = JSON.parse(toClineJson(stdioBase));
+    expect(parsed).toEqual({
+      mcpServers: {
+        'chrome-devtools': {
+          type: 'stdio',
+          command: 'npx',
+          args: ['-y', 'chrome-devtools-mcp@latest'],
+        },
+      },
+    });
+  });
+
+  it('includes env when provided for stdio', () => {
+    const parsed: unknown = JSON.parse(toClineJson(stdioWithEnv));
+    expect(parsed).toEqual({
+      mcpServers: {
+        airtable: {
+          type: 'stdio',
+          command: 'npx',
+          args: ['-y', 'airtable-mcp-server'],
+          env: { AIRTABLE_API_KEY: 'YOUR_KEY' },
+        },
+      },
+    });
+  });
+
+  it('omits args/env when empty for stdio', () => {
+    const minimal: McpServer = { ...stdioBase, args: [], env: {} };
+    const parsed: unknown = JSON.parse(toClineJson(minimal));
+    expect(parsed).toEqual({
+      mcpServers: {
+        'chrome-devtools': { type: 'stdio', command: 'npx' },
+      },
+    });
+  });
+
+  it('uses type:"streamableHttp" — NOT "http" — for Streamable HTTP transport', () => {
+    // Cline 独自仕様: Streamable HTTP の type リテラルは `"streamableHttp"` (camelCase)。
+    // Cursor / VS Code / Claude Code の `"http"` とは異なる。
+    // 参考: cline/src/services/mcp/schemas.ts の z.literal("streamableHttp") と
+    //       cline/src/services/mcp/McpHub.ts `addRemoteServer` のデフォルト値。
+    const parsed: unknown = JSON.parse(toClineJson(httpServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          type: 'streamableHttp',
+          url: 'https://mcp.notion.com/mcp',
+          headers: { Authorization: 'Bearer xyz' },
+        },
+      },
+    });
+  });
+
+  it('does NOT use the bare "http" type literal for Streamable HTTP', () => {
+    // 回帰防止: `"type": "http"` を出してしまうと Cline の z.discriminatedUnion で
+    // 弾かれる (`http` というリテラルは存在しない)。
+    const text = toClineJson(httpServer);
+    expect(text).toContain('"streamableHttp"');
+    expect(text).not.toMatch(/"type":\s*"http"/);
+  });
+
+  it('uses type:"sse" for SSE transport (with url + headers)', () => {
+    const sseServer: McpServer = {
+      id: 'srv-3',
+      name: 'notion',
+      description: '',
+      transport: 'sse',
+      url: 'https://mcp.notion.com/sse',
+      headers: { Authorization: 'Bearer xyz' },
+      scope: 'user',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const parsed: unknown = JSON.parse(toClineJson(sseServer));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          type: 'sse',
+          url: 'https://mcp.notion.com/sse',
+          headers: { Authorization: 'Bearer xyz' },
+        },
+      },
+    });
+  });
+
+  it('omits headers when empty for remote transports', () => {
+    const noHeaders: McpServer = { ...httpServer, headers: {} };
+    const parsed: unknown = JSON.parse(toClineJson(noHeaders));
+    expect(parsed).toEqual({
+      mcpServers: {
+        notion: {
+          type: 'streamableHttp',
+          url: 'https://mcp.notion.com/mcp',
+        },
+      },
+    });
+  });
+
+  it('produces JSON validatable by the Cline schema discriminated union (stdio)', () => {
+    // 構造的に Cline schemas.ts の discriminated union のいずれかに合致することを確認する。
+    const parsed = JSON.parse(toClineJson(stdioBase)) as {
+      mcpServers: Record<string, { type: string; command?: string; url?: string }>;
+    };
+    const entry = parsed.mcpServers['chrome-devtools'];
+    expect(entry).toBeDefined();
+    expect(entry?.type).toBe('stdio');
+    expect(entry?.command).toBe('npx');
+    expect(entry?.url).toBeUndefined();
+  });
+
+  it('produces JSON validatable by the Cline schema discriminated union (streamableHttp)', () => {
+    const parsed = JSON.parse(toClineJson(httpServer)) as {
+      mcpServers: Record<string, { type: string; command?: string; url?: string }>;
+    };
+    const entry = parsed.mcpServers.notion;
+    expect(entry?.type).toBe('streamableHttp');
+    expect(entry?.url).toBe('https://mcp.notion.com/mcp');
+    expect(entry?.command).toBeUndefined();
+  });
+});
+
 describe('formatServer dispatch', () => {
   it('returns correct format for each id', () => {
     expect(formatServer('claude-cli', stdioBase)).toContain('claude mcp add');
@@ -629,5 +755,8 @@ describe('formatServer dispatch', () => {
     expect(formatServer('antigravity-json', stdioBase)).toContain('"mcpServers"');
     // Antigravity の HTTP は `serverUrl` キーを使う点を dispatch でも確認する。
     expect(formatServer('antigravity-json', httpServer)).toContain('"serverUrl"');
+    expect(formatServer('cline-json', stdioBase)).toContain('"mcpServers"');
+    // Cline の HTTP は `"streamableHttp"` リテラルを使う点を dispatch でも確認する。
+    expect(formatServer('cline-json', httpServer)).toContain('"streamableHttp"');
   });
 });

@@ -134,6 +134,9 @@ const ja = {
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (リモートは `serverUrl` キー / SSE は npx mcp-remote でブリッジ)',
+  'format.cline-json.title': 'Cline (cline_mcp_settings.json)',
+  'format.cline-json.subtitle':
+    'VS Code 拡張 `saoudrizwan.claude-dev` 用 (Streamable HTTP の `type` は `"streamableHttp"` で `"http"` ではない)',
 
   // Codex CLI inline note (emitted by converters when extra HTTP headers present)
   'converters.codexCli.extraHeadersNote.line1':
@@ -261,6 +264,9 @@ const en: Record<MessageKey, string> = {
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (remote uses `serverUrl` key; SSE bridged via npx mcp-remote)',
+  'format.cline-json.title': 'Cline (cline_mcp_settings.json)',
+  'format.cline-json.subtitle':
+    'VS Code extension `saoudrizwan.claude-dev` (Streamable HTTP `type` is `"streamableHttp"`, not `"http"`)',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: arbitrary HTTP headers (other than the above) cannot be passed via `codex mcp add` CLI flags.',

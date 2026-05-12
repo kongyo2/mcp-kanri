@@ -73,8 +73,9 @@ const ja = {
   'form.name.label': '名前 (server-name)',
   'form.name.hint':
     '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`',
-  'form.scope.label': 'scope (Claude CLI / Codex CLI)',
-  'form.scope.hint': 'CLI の `--scope` オプションに反映',
+  'form.scope.label': 'scope (Claude / Gemini / Qwen CLI)',
+  'form.scope.hint':
+    'Claude / Gemini / Qwen CLI の `--scope` に反映 (Codex CLI は scope を持たず、常に `~/.codex/config.toml` のグローバル設定)',
   'form.scope.local': 'local (現プロジェクトのみ)',
   'form.scope.project': 'project (.mcp.json として共有)',
   'form.scope.user': 'user (全プロジェクト共通)',
@@ -196,8 +197,9 @@ const en: Record<MessageKey, string> = {
   'form.name.label': 'Name (server-name)',
   'form.name.hint':
     'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`',
-  'form.scope.label': 'scope (Claude CLI / Codex CLI)',
-  'form.scope.hint': 'Maps to the CLI `--scope` option',
+  'form.scope.label': 'scope (Claude / Gemini / Qwen CLI)',
+  'form.scope.hint':
+    'Maps to the `--scope` option of Claude / Gemini / Qwen CLI (Codex CLI has no scope; everything is stored globally in `~/.codex/config.toml`)',
   'form.scope.local': 'local (current project only)',
   'form.scope.project': 'project (shared as .mcp.json)',
   'form.scope.user': 'user (shared across all projects)',

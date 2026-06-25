@@ -318,9 +318,14 @@ export function mcpRemoteBridge(
  * `Authorization: Bearer ${ENV_VAR}` 形式のヘッダを検出し、Codex CLI の
  * `--bearer-token-env-var=<ENV_VAR>` に変換できるなら ENV_VAR 名を返す。
  *
- * Codex は実際のトークン値ではなく **環境変数名** を要求するため、
- * `Authorization: Bearer <literal_token>` のようにリテラル値が指定されている場合は
- * 変換せず (CLI ではなく config.toml + 環境変数の設定が必要)、null を返す。
+ * Codex の `bearer_token_env_var` / `--bearer-token-env-var` は実際のトークン値ではなく
+ * **環境変数名** を要求する。リテラルのトークン値を取る旧 `bearer_token` フィールドは
+ * 現行の openai/codex では streamable_http で受け付けられない
+ * (`codex-rs/config/src/mcp_types.rs` `RawMcpServerConfig::try_from` が
+ * `throw_if_set("streamable_http", "bearer_token", ...)` で拒否)。
+ * そのため `Authorization: Bearer <literal_token>` のようにリテラル値が指定されている場合は
+ * `--bearer-token-env-var` に変換せず null を返し、リテラル値は `toCodexToml` 側で
+ * `http_headers` エントリとして書き出す (`toCodexCli` では follow-up ノートで config.toml を案内)。
  */
 function pickBearerTokenEnvVar(headers: Record<string, string>): string | null {
   for (const [k, v] of Object.entries(headers)) {

@@ -91,6 +91,16 @@ describe('toCodexCli', () => {
     );
   });
 
+  it('emits --env KEY=VALUE flags for stdio env (Codex uses the long --env flag only)', () => {
+    // Codex の `codex mcp add` stdio は env を `--env KEY=VALUE` (long flag のみ。`-e` は無い)
+    // で受け取り、NAME 位置引数の前に並べても clap が正しく解釈する。
+    // 参考: openai/codex `codex-rs/cli/src/mcp_cmd.rs` `AddMcpStdioArgs.env`
+    //       (`#[arg(long, value_parser = parse_env_pair, value_name = "KEY=VALUE")]`)。
+    expect(toCodexCli(stdioWithEnv)).toBe(
+      'codex mcp add --env AIRTABLE_API_KEY=YOUR_KEY airtable -- npx -y airtable-mcp-server',
+    );
+  });
+
   it('produces streamable HTTP `codex mcp add --url` command', () => {
     const minimalHttp: McpServer = {
       ...httpServer,

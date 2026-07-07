@@ -74,40 +74,41 @@ export function App(): JSX.Element {
   const editingTarget =
     mode.kind === 'edit' ? (servers.find((s) => s.id === mode.serverId) ?? null) : null;
 
-  const handleCreate = async (input: McpServerInput): Promise<void> => {
+  // 3 つのハンドラで共通していた「失敗時にエラートーストを出す」try/catch を集約する。
+  const runGuarded = async (action: () => Promise<void>): Promise<void> => {
     try {
+      await action();
+    } catch (err) {
+      showToast(errorMessage(err), 'error');
+    }
+  };
+
+  const handleCreate = (input: McpServerInput): Promise<void> =>
+    runGuarded(async () => {
       const created = await kanri.create(input);
       await reload();
       setSelectedId(created.id);
       setMode({ kind: 'idle' });
       showToast(t('app.toast.created', { name: created.name }), 'success');
-    } catch (err) {
-      showToast(errorMessage(err), 'error');
-    }
-  };
+    });
 
-  const handleUpdate = async (id: string, input: McpServerInput): Promise<void> => {
-    try {
+  const handleUpdate = (id: string, input: McpServerInput): Promise<void> =>
+    runGuarded(async () => {
       const updated = await kanri.update(id, input);
       await reload();
       setSelectedId(updated.id);
       setMode({ kind: 'idle' });
       showToast(t('app.toast.updated', { name: updated.name }), 'success');
-    } catch (err) {
-      showToast(errorMessage(err), 'error');
-    }
-  };
+    });
 
-  const handleRemove = async (server: McpServer): Promise<void> => {
-    if (!window.confirm(t('app.confirm.remove', { name: server.name }))) return;
-    try {
+  const handleRemove = (server: McpServer): Promise<void> => {
+    if (!window.confirm(t('app.confirm.remove', { name: server.name }))) return Promise.resolve();
+    return runGuarded(async () => {
       await kanri.remove(server.id);
       await reload();
       if (selectedId === server.id) setSelectedId(null);
       showToast(t('app.toast.removed', { name: server.name }), 'success');
-    } catch (err) {
-      showToast(errorMessage(err), 'error');
-    }
+    });
   };
 
   return (

@@ -1,5 +1,6 @@
 import { useI18n } from '../i18n';
 import { makeRowIdFactory } from './rowId';
+import { FieldShell } from './FieldShell';
 
 export interface KeyValueRow {
   readonly id: string;
@@ -35,9 +36,7 @@ export function rowsToRecord(rows: readonly KeyValueRow[]): Record<string, strin
 export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Element {
   const { t } = useI18n();
   return (
-    <div className="field">
-      <label>{label}</label>
-      {hint !== undefined ? <span className="hint">{hint}</span> : null}
+    <FieldShell label={label} hint={hint}>
       {rows.map((row) => (
         <div key={row.id} className="kv-row">
           <input
@@ -82,6 +81,6 @@ export function KeyValueEditor({ label, hint, rows, onChange }: Props): JSX.Elem
       >
         {t('form.kv.add')}
       </button>
-    </div>
+    </FieldShell>
   );
 }

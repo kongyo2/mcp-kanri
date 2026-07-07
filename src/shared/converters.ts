@@ -144,16 +144,45 @@ function joinArgs(args: readonly string[]): string {
   return args.map(quoteShell).join(' ');
 }
 
-function envFlags(env: Record<string, string>, flag: '--env' | '-e' = '--env'): string[] {
-  return Object.entries(env).map(([k, v]) => `${flag} ${quoteShell(`${k}=${v}`)}`);
+/**
+ * `Record` の各エントリを `<flag> <quoted "KEY<sep>VALUE">` トークンの配列に変換する。
+ * env (`KEY=VALUE`) とヘッダ (`KEY: VALUE`) はフラグ名と区切り文字が違うだけで同一処理なので、
+ * この 1 箇所に集約し {@link envFlags} / {@link headerFlags} から呼び分ける。
+ */
+function entryFlags(record: Record<string, string>, flag: string, sep: '=' | ': '): string[] {
+  return Object.entries(record).map(([k, v]) => `${flag} ${quoteShell(`${k}${sep}${v}`)}`);
 }
 
-function headerFlags(headers: Record<string, string>): string[] {
-  return Object.entries(headers).map(([k, v]) => `--header ${quoteShell(`${k}: ${v}`)}`);
+function envFlags(env: Record<string, string>, flag: '--env' | '-e' = '--env'): string[] {
+  return entryFlags(env, flag, '=');
+}
+
+function headerFlags(
+  headers: Record<string, string>,
+  flag: '--header' | '-H' = '--header',
+): string[] {
+  return entryFlags(headers, flag, ': ');
 }
 
 function scopeFlag(scope: Scope): string {
   return `--scope ${scope}`;
+}
+
+/**
+ * stdio CLI コマンドの共通末尾 (`--env KEY=VALUE`... → NAME → `--` → COMMAND → args...) を組み立てる。
+ * Claude CLI (`claude mcp add`) と Codex CLI (`codex mcp add`) はこの並びを完全に共有する
+ * (先頭の `--transport` / `--scope` プレフィクスだけが各実装で異なる)。gemini/qwen は
+ * `-e` フラグと `--` 区切りの位置が異なるため、この共通末尾には含めない。
+ */
+function stdioAddArgs(server: Extract<McpServer, { transport: 'stdio' }>): string[] {
+  const parts: string[] = [
+    ...envFlags(server.env),
+    quoteShell(server.name),
+    '--',
+    quoteShell(server.command),
+  ];
+  if (server.args.length > 0) parts.push(joinArgs(server.args));
+  return parts;
 }
 
 // -------------------- format implementations --------------------
@@ -164,11 +193,7 @@ export function toClaudeCli(server: McpServer): string {
   if (server.transport === 'stdio') {
     parts.push('--transport', 'stdio');
     parts.push(scopeFlag(server.scope));
-    parts.push(...envFlags(server.env));
-    parts.push(quoteShell(server.name));
-    parts.push('--');
-    parts.push(quoteShell(server.command));
-    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    parts.push(...stdioAddArgs(server));
     return parts.filter(Boolean).join(' ');
   }
 
@@ -186,12 +211,7 @@ export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {
   // streamable_http のみ (sse は未対応)。
   // 参考: openai/codex `codex-rs/cli/src/mcp_cmd.rs` の AddMcpTransportArgs。
   if (server.transport === 'stdio') {
-    const parts: string[] = ['codex', 'mcp', 'add'];
-    parts.push(...envFlags(server.env));
-    parts.push(quoteShell(server.name));
-    parts.push('--');
-    parts.push(quoteShell(server.command));
-    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    const parts: string[] = ['codex', 'mcp', 'add', ...stdioAddArgs(server)];
     return parts.filter(Boolean).join(' ');
   }
 
@@ -264,9 +284,7 @@ function toGeminiLikeCli(bin: 'gemini' | 'qwen', server: McpServer): string {
 
   if (server.transport === 'stdio') {
     // -e KEY=value を name より前に並べる (gemini-cli のテストにある正式な並び)。
-    for (const [k, v] of Object.entries(server.env)) {
-      parts.push('-e', quoteShell(`${k}=${v}`));
-    }
+    parts.push(...envFlags(server.env, '-e'));
     parts.push(quoteShell(server.name));
     parts.push(quoteShell(server.command));
     if (server.args.length > 0) {
@@ -278,9 +296,7 @@ function toGeminiLikeCli(bin: 'gemini' | 'qwen', server: McpServer): string {
 
   // remote (http / sse)
   parts.push('--transport', server.transport);
-  for (const [k, v] of Object.entries(server.headers)) {
-    parts.push('-H', quoteShell(`${k}: ${v}`));
-  }
+  parts.push(...headerFlags(server.headers, '-H'));
   parts.push(quoteShell(server.name));
   parts.push(quoteShell(server.url));
   return parts.join(' ');

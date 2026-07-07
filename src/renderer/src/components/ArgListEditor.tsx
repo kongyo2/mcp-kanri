@@ -1,5 +1,6 @@
 import { useI18n } from '../i18n';
 import { makeRowIdFactory } from './rowId';
+import { FieldShell } from './FieldShell';
 
 export interface ArgRow {
   readonly id: string;
@@ -26,9 +27,7 @@ interface Props {
 export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Element {
   const { t } = useI18n();
   return (
-    <div className="field">
-      <label>{label}</label>
-      {hint !== undefined ? <span className="hint">{hint}</span> : null}
+    <FieldShell label={label} hint={hint}>
       {value.map((row, idx) => (
         <div key={row.id} className="list-row">
           <input
@@ -63,6 +62,6 @@ export function ArgListEditor({ label, hint, value, onChange }: Props): JSX.Elem
       >
         {t('form.args.add')}
       </button>
-    </div>
+    </FieldShell>
   );
 }

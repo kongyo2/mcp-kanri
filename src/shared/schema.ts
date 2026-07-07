@@ -30,42 +30,51 @@ const NameSchema = z
 
 const KeyValueRecord = z.record(z.string(), z.string());
 
-const StdioServerSchema = z.object({
+/**
+ * 全 transport 共通のフィールドを、元の定義と同じキー順を保つために先頭 (`transport`
+ * より前) と末尾 (`transport` 固有フィールドより後) に分けて定義する。各スキーマは
+ * `{ ...serverHeadFields, transport, <固有>, ...serverTailFields }` の順で組み立てる
+ * ことで、パース結果および永続化 JSON のキー順を元と完全に一致させる。
+ */
+const serverHeadFields = {
   id: z.string(),
   name: NameSchema,
   description: z.string().optional().default(''),
+};
+const serverTailFields = {
+  scope: z.enum(['local', 'project', 'user']).default('user'),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+};
+
+const StdioServerSchema = z.object({
+  ...serverHeadFields,
   transport: z.literal('stdio'),
   command: z.string().min(1, 'validation.commandRequired'),
   args: z.array(z.string()).default([]),
   env: KeyValueRecord.default({}),
-  scope: z.enum(['local', 'project', 'user']).default('user'),
-  createdAt: z.number(),
-  updatedAt: z.number(),
+  ...serverTailFields,
 });
 
-const HttpServerSchema = z.object({
-  id: z.string(),
-  name: NameSchema,
-  description: z.string().optional().default(''),
-  transport: z.literal('http'),
-  url: z.string().url('validation.urlInvalid'),
-  headers: KeyValueRecord.default({}),
-  scope: z.enum(['local', 'project', 'user']).default('user'),
-  createdAt: z.number(),
-  updatedAt: z.number(),
-});
+/**
+ * リモート (http / sse) サーバのスキーマ。両者は `transport` リテラルだけが異なり、
+ * それ以外のフィールド (url + headers + 共通メタ) は完全に同一なので、transport を
+ * 引数化したファクトリで生成する。フィールドの並び順・バリデータは元の定義と一致させ、
+ * discriminatedUnion / パース結果のキー順を変えない。
+ */
+function remoteServerSchema<T extends 'http' | 'sse'>(transport: T) {
+  return z.object({
+    ...serverHeadFields,
+    transport: z.literal(transport),
+    url: z.string().url('validation.urlInvalid'),
+    headers: KeyValueRecord.default({}),
+    ...serverTailFields,
+  });
+}
 
-const SseServerSchema = z.object({
-  id: z.string(),
-  name: NameSchema,
-  description: z.string().optional().default(''),
-  transport: z.literal('sse'),
-  url: z.string().url('validation.urlInvalid'),
-  headers: KeyValueRecord.default({}),
-  scope: z.enum(['local', 'project', 'user']).default('user'),
-  createdAt: z.number(),
-  updatedAt: z.number(),
-});
+const HttpServerSchema = remoteServerSchema('http');
+
+const SseServerSchema = remoteServerSchema('sse');
 
 export const McpServerSchema = z.discriminatedUnion('transport', [
   StdioServerSchema,

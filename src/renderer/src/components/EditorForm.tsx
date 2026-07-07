@@ -9,6 +9,7 @@ import {
 import { KeyValueEditor, recordToRows, rowsToRecord, type KeyValueRow } from './KeyValueEditor';
 import { ArgListEditor, stringsToArgRows, argRowsToStrings, type ArgRow } from './ArgListEditor';
 import { useI18n } from '../i18n';
+import { errorMessage } from '../errors';
 
 interface Props {
   readonly initial?: McpServer;
@@ -118,7 +119,7 @@ export function EditorForm({ initial, onCancel, onSubmit }: Props): JSX.Element 
     try {
       await onSubmit(buildInput(draft));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

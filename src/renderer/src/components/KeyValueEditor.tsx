@@ -1,4 +1,5 @@
 import { useI18n } from '../i18n';
+import { makeRowIdFactory } from './rowId';
 
 export interface KeyValueRow {
   readonly id: string;
@@ -17,11 +18,7 @@ interface Props {
   readonly onChange: (next: KeyValueRow[]) => void;
 }
 
-let kvRowCounter = 0;
-function nextKvRowId(): string {
-  kvRowCounter += 1;
-  return `kv-${kvRowCounter}`;
-}
+const nextKvRowId = makeRowIdFactory('kv');
 
 export function recordToRows(value: Record<string, string>): KeyValueRow[] {
   return Object.entries(value).map(([k, v]) => ({ id: nextKvRowId(), key: k, value: v }));

@@ -4,6 +4,7 @@ import type { McpServer, McpServerInput } from '../../shared/schema';
 import { EditorForm } from './components/EditorForm';
 import { Detail } from './components/Detail';
 import { useI18n } from './i18n';
+import { errorMessage } from './errors';
 import { SUPPORTED_LOCALES, type Locale } from '../../shared/i18n';
 
 type Mode = { kind: 'idle' } | { kind: 'create' } | { kind: 'edit'; serverId: string };
@@ -49,7 +50,7 @@ export function App(): JSX.Element {
       // ストアの読込/パース/スキーマ検証で失敗した場合、storage.ts は空ストアで
       // 上書きせず例外を投げてくる。ユーザにエラーを提示し、サイドバーは前回値
       // (空でも) を維持する。
-      showToast(err instanceof Error ? err.message : String(err), 'error');
+      showToast(errorMessage(err), 'error');
     }
   }, [showToast]);
 
@@ -81,7 +82,7 @@ export function App(): JSX.Element {
       setMode({ kind: 'idle' });
       showToast(t('app.toast.created', { name: created.name }), 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err), 'error');
+      showToast(errorMessage(err), 'error');
     }
   };
 
@@ -93,7 +94,7 @@ export function App(): JSX.Element {
       setMode({ kind: 'idle' });
       showToast(t('app.toast.updated', { name: updated.name }), 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err), 'error');
+      showToast(errorMessage(err), 'error');
     }
   };
 
@@ -105,7 +106,7 @@ export function App(): JSX.Element {
       if (selectedId === server.id) setSelectedId(null);
       showToast(t('app.toast.removed', { name: server.name }), 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err), 'error');
+      showToast(errorMessage(err), 'error');
     }
   };
 

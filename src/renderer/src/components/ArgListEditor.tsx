@@ -1,15 +1,12 @@
 import { useI18n } from '../i18n';
+import { makeRowIdFactory } from './rowId';
 
 export interface ArgRow {
   readonly id: string;
   readonly value: string;
 }
 
-let argRowCounter = 0;
-function nextArgRowId(): string {
-  argRowCounter += 1;
-  return `arg-${argRowCounter}`;
-}
+const nextArgRowId = makeRowIdFactory('arg');
 
 export function stringsToArgRows(values: readonly string[]): ArgRow[] {
   return values.map((v) => ({ id: nextArgRowId(), value: v }));

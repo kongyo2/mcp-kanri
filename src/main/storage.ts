@@ -131,6 +131,21 @@ async function writeFile(store: StoreFile): Promise<void> {
   await fs.rename(tmp, p);
 }
 
+/** 現行スキーマバージョンで servers 配列を包んで永続化する。 */
+async function saveServers(servers: McpServer[]): Promise<void> {
+  await writeFile({ version: 1, servers });
+}
+
+/**
+ * `name` が既存サーバと衝突する場合は例外を投げる。
+ * `exceptId` を渡すとその id のサーバは比較対象から外す (更新時に自分自身との衝突を無視する)。
+ */
+function assertNameAvailable(store: StoreFile, name: string, exceptId?: string): void {
+  if (store.servers.some((s) => s.id !== exceptId && s.name === name)) {
+    throw new Error(tr('storage.error.duplicateName', { name }));
+  }
+}
+
 export async function listServers(): Promise<McpServer[]> {
   const store = await readStore();
   return [...store.servers].sort((a, b) => a.name.localeCompare(b.name));
@@ -138,13 +153,11 @@ export async function listServers(): Promise<McpServer[]> {
 
 export async function createServer(input: McpServerInput): Promise<McpServer> {
   const store = await readStore();
-  if (store.servers.some((s) => s.name === input.name)) {
-    throw new Error(tr('storage.error.duplicateName', { name: input.name }));
-  }
+  assertNameAvailable(store, input.name);
   const now = Date.now();
   const candidate = { ...input, id: randomUUID(), createdAt: now, updatedAt: now };
   const validated = McpServerSchema.parse(candidate);
-  await writeFile({ version: 1, servers: [...store.servers, validated] });
+  await saveServers([...store.servers, validated]);
   return validated;
 }
 
@@ -154,9 +167,7 @@ export async function updateServer(id: string, input: McpServerInput): Promise<M
   if (existing === undefined) {
     throw new Error(tr('storage.error.notFound', { id }));
   }
-  if (store.servers.some((s) => s.id !== id && s.name === input.name)) {
-    throw new Error(tr('storage.error.duplicateName', { name: input.name }));
-  }
+  assertNameAvailable(store, input.name, id);
   const candidate = {
     ...input,
     id,
@@ -165,14 +176,14 @@ export async function updateServer(id: string, input: McpServerInput): Promise<M
   };
   const validated = McpServerSchema.parse(candidate);
   const next = store.servers.map((s) => (s.id === id ? validated : s));
-  await writeFile({ version: 1, servers: next });
+  await saveServers(next);
   return validated;
 }
 
 export async function removeServer(id: string): Promise<void> {
   const store = await readStore();
   const next = store.servers.filter((s) => s.id !== id);
-  await writeFile({ version: 1, servers: next });
+  await saveServers(next);
 }
 
 export function getStorePath(): string {

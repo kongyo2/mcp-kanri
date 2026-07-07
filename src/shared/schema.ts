@@ -88,11 +88,14 @@ export type Scope = McpServer['scope'];
 
 /**
  * 編集フォームから受け取る入力 (id / createdAt / updatedAt は呼び出し側で付与する)。
+ * 3 つの transport スキーマから同じフィールドを除くため、omit マスクを 1 箇所に定義する。
  */
+const INPUT_OMIT = { id: true, createdAt: true, updatedAt: true } as const;
+
 export const McpServerInputSchema = z.discriminatedUnion('transport', [
-  StdioServerSchema.omit({ id: true, createdAt: true, updatedAt: true }),
-  HttpServerSchema.omit({ id: true, createdAt: true, updatedAt: true }),
-  SseServerSchema.omit({ id: true, createdAt: true, updatedAt: true }),
+  StdioServerSchema.omit(INPUT_OMIT),
+  HttpServerSchema.omit(INPUT_OMIT),
+  SseServerSchema.omit(INPUT_OMIT),
 ]);
 export type McpServerInput = z.infer<typeof McpServerInputSchema>;
 

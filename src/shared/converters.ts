@@ -389,7 +389,11 @@ export function partitionCodexHttpHeaders(headers: Record<string, string>): Code
   };
 }
 
-interface JsonStdio {
+/**
+ * stdio 用 JSON エントリの共通形。mcpServers JSON / Claude Desktop / Antigravity /
+ * Cline はいずれも `command` + 任意の `args` / `env` を同じ形で持つ。
+ */
+interface StdioEntry {
   command: string;
   args?: string[];
   env?: Record<string, string>;
@@ -400,31 +404,43 @@ interface JsonHttpLike {
   headers?: Record<string, string>;
 }
 
-function serverToJsonValue(server: McpServer): JsonStdio | JsonHttpLike {
-  if (server.transport === 'stdio') {
-    const result: JsonStdio = { command: server.command };
-    if (server.args.length > 0) result.args = server.args;
-    if (Object.keys(server.env).length > 0) result.env = server.env;
-    return result;
-  }
-  const result: JsonHttpLike = {
-    type: server.transport,
-    url: server.url,
-  };
-  if (Object.keys(server.headers).length > 0) result.headers = server.headers;
-  return result;
+/**
+ * stdio サーバの `command` と、非空のときだけ `args` / `env` を付けたエントリを組み立てる。
+ * 空配列 / 空オブジェクトのフィールドはどのクライアント設定でも省くのが慣習なので、
+ * その「非空なら含める」ロジックを 1 箇所に集約する。
+ */
+function stdioEntry(server: Extract<McpServer, { transport: 'stdio' }>): StdioEntry {
+  const entry: StdioEntry = { command: server.command };
+  if (server.args.length > 0) entry.args = server.args;
+  if (Object.keys(server.env).length > 0) entry.env = server.env;
+  return entry;
+}
+
+/** `headers` が非空のときだけ付与する (リモートエントリ生成の共通処理)。 */
+function withHeaders<T extends { headers?: Record<string, string> }>(
+  entry: T,
+  headers: Record<string, string>,
+): T {
+  if (Object.keys(headers).length > 0) entry.headers = headers;
+  return entry;
+}
+
+/** `{ <topKey>: { <name>: value } }` を 2 スペース整形 JSON 文字列にする共通ラッパ。 */
+function toJsonBlock(topKey: 'mcpServers' | 'servers', name: string, value: unknown): string {
+  return JSON.stringify({ [topKey]: { [name]: value } }, null, 2);
+}
+
+function serverToJsonValue(server: McpServer): StdioEntry | JsonHttpLike {
+  if (server.transport === 'stdio') return stdioEntry(server);
+  return withHeaders<JsonHttpLike>({ type: server.transport, url: server.url }, server.headers);
 }
 
 export function toMcpJson(server: McpServer): string {
-  const value = serverToJsonValue(server);
-  const obj = { mcpServers: { [server.name]: value } };
-  return JSON.stringify(obj, null, 2);
+  return toJsonBlock('mcpServers', server.name, serverToJsonValue(server));
 }
 
 export function toVscodeJson(server: McpServer): string {
-  const value = serverToJsonValue(server);
-  const obj = { servers: { [server.name]: value } };
-  return JSON.stringify(obj, null, 2);
+  return toJsonBlock('servers', server.name, serverToJsonValue(server));
 }
 
 /**
@@ -464,18 +480,14 @@ export function mcpProxyBridge(
 }
 
 export function toClaudeDesktop(server: McpServer): string {
-  let value: JsonStdio;
+  let value: StdioEntry;
   if (server.transport === 'stdio') {
-    const stdio: JsonStdio = { command: server.command };
-    if (server.args.length > 0) stdio.args = server.args;
-    if (Object.keys(server.env).length > 0) stdio.env = server.env;
-    value = stdio;
+    value = stdioEntry(server);
   } else {
     const bridge = mcpProxyBridge(server.transport, server.url, server.headers);
     value = { command: bridge.command, args: bridge.args };
   }
-  const obj = { mcpServers: { [server.name]: value } };
-  return JSON.stringify(obj, null, 2);
+  return toJsonBlock('mcpServers', server.name, value);
 }
 
 // -------------------- TOML --------------------
@@ -564,39 +576,25 @@ export function toCodexToml(server: McpServer): string {
  * - SSE はネイティブ未対応のため、SSE 登録は `npx -y mcp-remote` で stdio に
  *   橋渡しした形 (Codex CLI と同じパターン) で出力する。
  */
-interface AntigravityStdio {
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
-}
+// stdio エントリは mcpServers JSON と同一形なので {@link StdioEntry} を共用する。
 interface AntigravityHttp {
   serverUrl: string;
   headers?: Record<string, string>;
 }
 
-function serverToAntigravityValue(server: McpServer): AntigravityStdio | AntigravityHttp {
-  if (server.transport === 'stdio') {
-    const result: AntigravityStdio = { command: server.command };
-    if (server.args.length > 0) result.args = server.args;
-    if (Object.keys(server.env).length > 0) result.env = server.env;
-    return result;
-  }
+function serverToAntigravityValue(server: McpServer): StdioEntry | AntigravityHttp {
+  if (server.transport === 'stdio') return stdioEntry(server);
   if (server.transport === 'http') {
-    const result: AntigravityHttp = { serverUrl: server.url };
-    if (Object.keys(server.headers).length > 0) result.headers = server.headers;
-    return result;
+    return withHeaders<AntigravityHttp>({ serverUrl: server.url }, server.headers);
   }
   // sse: Antigravity は Streamable HTTP のみネイティブ対応するため、SSE は
   // mcp-remote で stdio に橋渡しした形で書き出す。
   const bridge = mcpRemoteBridge(server.url, server.headers);
-  const result: AntigravityStdio = { command: bridge.command, args: bridge.args };
-  return result;
+  return { command: bridge.command, args: bridge.args };
 }
 
 export function toAntigravityJson(server: McpServer): string {
-  const value = serverToAntigravityValue(server);
-  const obj = { mcpServers: { [server.name]: value } };
-  return JSON.stringify(obj, null, 2);
+  return toJsonBlock('mcpServers', server.name, serverToAntigravityValue(server));
 }
 
 // -------------------- Cline --------------------
@@ -634,11 +632,9 @@ export function toAntigravityJson(server: McpServer): string {
  *   - cline/src/core/storage/disk.ts `GlobalFileNames.mcpSettings = "cline_mcp_settings.json"`
  *   - cline/docs/mcp/adding-and-configuring-servers.mdx
  */
-interface ClineStdio {
+// Cline の stdio は共通の {@link StdioEntry} に `type: "stdio"` リテラルを足しただけ。
+interface ClineStdio extends StdioEntry {
   type: 'stdio';
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
 }
 interface ClineHttpLike {
   type: 'sse' | 'streamableHttp';
@@ -648,25 +644,18 @@ interface ClineHttpLike {
 
 function serverToClineValue(server: McpServer): ClineStdio | ClineHttpLike {
   if (server.transport === 'stdio') {
-    const result: ClineStdio = { type: 'stdio', command: server.command };
-    if (server.args.length > 0) result.args = server.args;
-    if (Object.keys(server.env).length > 0) result.env = server.env;
-    return result;
+    return { type: 'stdio', ...stdioEntry(server) };
   }
   // Cline の type リテラルは `streamableHttp` (camelCase) であって `http` ではない。
   // mcpServers JSON / VS Code は `"http"` を使うため、Cline 専用に書き換える。
-  const result: ClineHttpLike = {
-    type: server.transport === 'http' ? 'streamableHttp' : 'sse',
-    url: server.url,
-  };
-  if (Object.keys(server.headers).length > 0) result.headers = server.headers;
-  return result;
+  return withHeaders<ClineHttpLike>(
+    { type: server.transport === 'http' ? 'streamableHttp' : 'sse', url: server.url },
+    server.headers,
+  );
 }
 
 export function toClineJson(server: McpServer): string {
-  const value = serverToClineValue(server);
-  const obj = { mcpServers: { [server.name]: value } };
-  return JSON.stringify(obj, null, 2);
+  return toJsonBlock('mcpServers', server.name, serverToClineValue(server));
 }
 
 // -------------------- dispatcher --------------------

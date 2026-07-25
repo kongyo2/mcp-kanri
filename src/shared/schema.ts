@@ -19,8 +19,16 @@ import { z } from 'zod';
  *   (openai/codex `codex-rs/cli/src/mcp_cmd.rs` / `codex-mcp/src/rmcp_client.rs`)
  * - **TOML bare key**: `[A-Za-z0-9_-]+` (それ以外の文字を含む場合は引用が必要で
  *   `[mcp_servers.<name>]` テーブルヘッダ表記が壊れる)
- * - JSON / Claude CLI 側はもっと緩いが、共通の最大公約数として `[A-Za-z0-9_-]` のみ
- *   許可する。`.` は Codex CLI で拒否されるため除外。
+ * - **Claude Code CLI**: `claude mcp` 系コマンドも英数字 / `-` / `_` のみ許可
+ *   (`Invalid name <name>. Names can only contain letters, numbers, hyphens, and underscores.`)。
+ *   https://code.claude.com/docs/en/mcp.md "Import MCP servers from Claude Desktop" 節に明記。
+ * - JSON 直書き (`.mcp.json` / `mcpServers` / `claude_desktop_config.json`) はもっと緩いが、
+ *   共通の最大公約数として `[A-Za-z0-9_-]` のみ許可する。`.` は Codex CLI / Claude Code CLI の
+ *   双方で拒否されるため除外。
+ *
+ * 補足: Claude Code は `workspace` / `claude-in-chrome` / `computer-use` / `Claude Preview` /
+ * `Claude Browser` を組み込みサーバ用に予約しており `claude mcp add` はこれらを拒否するが、
+ * 他の 9 フォーマットでは有効な名前なのでここでは弾かない。
  */
 const NameSchema = z
   .string()

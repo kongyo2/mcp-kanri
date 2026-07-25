@@ -169,38 +169,54 @@ function scopeFlag(scope: Scope): string {
 }
 
 /**
- * stdio CLI コマンドの共通末尾 (`--env KEY=VALUE`... → NAME → `--` → COMMAND → args...) を組み立てる。
- * Claude CLI (`claude mcp add`) と Codex CLI (`codex mcp add`) はこの並びを完全に共有する
- * (先頭の `--transport` / `--scope` プレフィクスだけが各実装で異なる)。gemini/qwen は
- * `-e` フラグと `--` 区切りの位置が異なるため、この共通末尾には含めない。
+ * stdio CLI コマンドの共通末尾 (NAME → `--` → COMMAND → args...) を組み立てる。
+ * Claude CLI (`claude mcp add`) と Codex CLI (`codex mcp add`) はこの並びを共有するが、
+ * `--env` を置ける位置は異なる ({@link toClaudeCli} の可変長オプションに関する注記を参照)
+ * ため、env フラグは各呼び出し側で前置する。gemini/qwen は `-e` フラグと `--` 区切りの
+ * 位置がさらに異なるため、この共通末尾には含めない。
  */
-function stdioAddArgs(server: Extract<McpServer, { transport: 'stdio' }>): string[] {
-  const parts: string[] = [
-    ...envFlags(server.env),
-    quoteShell(server.name),
-    '--',
-    quoteShell(server.command),
-  ];
+function stdioNameAndCommand(server: Extract<McpServer, { transport: 'stdio' }>): string[] {
+  const parts: string[] = [quoteShell(server.name), '--', quoteShell(server.command)];
   if (server.args.length > 0) parts.push(joinArgs(server.args));
   return parts;
 }
 
 // -------------------- format implementations --------------------
 
+/**
+ * Claude Code CLI (`claude mcp add [options] <name> <commandOrUrl> [args...]`) 形式。
+ *
+ * **重要 (可変長オプション)**: Claude CLI の env / header は commander の可変長オプション
+ * `-e, --env <env...>` / `-H, --header <header...>` として定義されており、直後のトークンを
+ * 次のオプション (`-` 始まり) が現れるまで貪欲に値として吸い込む。そのため
+ * `--env KEY=VALUE <name>` のようにサーバ名を直後に置くと name が値として取り込まれ、
+ * `Invalid environment variable format: <name>` / `error: missing required argument 'name'`
+ * で失敗する。公式ドキュメントも「`--env` とサーバ名の間には必ず別のオプションを挟むこと」
+ * と明示しているため、env / header フラグは先頭に出し、`--transport` / `--scope` を
+ * 挟んでから name を置く。
+ *
+ * 参考: https://code.claude.com/docs/en/mcp.md
+ *       ("Important: Separate server arguments with `--`" の注記),
+ *       `claude mcp add --help` (Claude Code v2.1.220)
+ *
+ * なお Codex CLI (clap) の `--env` は 1 オカレンスにつき値 1 個のみを取るため
+ * この制約はなく、{@link toCodexCli} では従来どおり name の直前に置いてよい。
+ */
 export function toClaudeCli(server: McpServer): string {
   const parts: string[] = ['claude', 'mcp', 'add'];
 
   if (server.transport === 'stdio') {
+    parts.push(...envFlags(server.env));
     parts.push('--transport', 'stdio');
     parts.push(scopeFlag(server.scope));
-    parts.push(...stdioAddArgs(server));
+    parts.push(...stdioNameAndCommand(server));
     return parts.filter(Boolean).join(' ');
   }
 
   // remote (http / sse)
+  parts.push(...headerFlags(server.headers));
   parts.push('--transport', server.transport);
   parts.push(scopeFlag(server.scope));
-  parts.push(...headerFlags(server.headers));
   parts.push(quoteShell(server.name));
   parts.push(quoteShell(server.url));
   return parts.filter(Boolean).join(' ');
@@ -211,7 +227,15 @@ export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {
   // streamable_http のみ (sse は未対応)。
   // 参考: openai/codex `codex-rs/cli/src/mcp_cmd.rs` の AddMcpTransportArgs。
   if (server.transport === 'stdio') {
-    const parts: string[] = ['codex', 'mcp', 'add', ...stdioAddArgs(server)];
+    // clap の `--env` は 1 オカレンス = 値 1 個 (`value_parser = parse_env_pair`) なので、
+    // Claude CLI と違い name を直後に置いても吸い込まれない。
+    const parts: string[] = [
+      'codex',
+      'mcp',
+      'add',
+      ...envFlags(server.env),
+      ...stdioNameAndCommand(server),
+    ];
     return parts.filter(Boolean).join(' ');
   }
 

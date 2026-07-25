@@ -71,15 +71,47 @@ describe('toClaudeCli', () => {
     );
   });
 
-  it('includes --env flags and quotes values when needed', () => {
+  // Claude CLI の `-e/--env` は commander の可変長オプション (`--env <env...>`) で、
+  // 次に `-` 始まりのトークンが現れるまで値を貪欲に吸い込む。`--env KEY=VALUE <name>`
+  // と並べると name が env 値として取り込まれ
+  // `Invalid environment variable format: <name>` で失敗するため、env フラグは
+  // 先頭に置き `--transport` / `--scope` を挟んでから name を出す。
+  // 参考: https://code.claude.com/docs/en/mcp.md, `claude mcp add --help` (v2.1.220)
+  it('puts --env before --transport so the name is not swallowed by the variadic flag', () => {
     expect(toClaudeCli(stdioWithEnv)).toBe(
-      'claude mcp add --transport stdio --scope local --env AIRTABLE_API_KEY=YOUR_KEY airtable -- npx -y airtable-mcp-server',
+      'claude mcp add --env AIRTABLE_API_KEY=YOUR_KEY --transport stdio --scope local airtable -- npx -y airtable-mcp-server',
     );
   });
 
-  it('produces http command with --header flag', () => {
+  it('keeps every --env flag ahead of the name and quotes values when needed', () => {
+    const multiEnv: McpServer = {
+      ...stdioWithEnv,
+      command: 'python',
+      args: ['server.py', '--port', '8080'],
+      env: { A: '1', B: 'hello world', C: "it's valid" },
+    };
+    expect(toClaudeCli(multiEnv)).toBe(
+      "claude mcp add --env A=1 --env 'B=hello world' --env 'C=it'\\''s valid' --transport stdio --scope local airtable -- python server.py --port 8080",
+    );
+  });
+
+  // `-H/--header` も同じ可変長オプション (`--header <header...>`) なので、name / url を
+  // 直後に置くと `error: missing required argument 'name'` になる。
+  it('produces http command with --header ahead of --transport', () => {
     expect(toClaudeCli(httpServer)).toBe(
-      "claude mcp add --transport http --scope user --header 'Authorization: Bearer xyz' notion https://mcp.notion.com/mcp",
+      "claude mcp add --header 'Authorization: Bearer xyz' --transport http --scope user notion https://mcp.notion.com/mcp",
+    );
+  });
+
+  it('keeps every --header flag ahead of the name for sse servers', () => {
+    const sseServer: McpServer = {
+      ...httpServer,
+      transport: 'sse',
+      url: 'https://api.example.com/sse',
+      headers: { 'X-A': '1', 'X-B': "it's" },
+    };
+    expect(toClaudeCli(sseServer)).toBe(
+      "claude mcp add --header 'X-A: 1' --header 'X-B: it'\\''s' --transport sse --scope user notion https://api.example.com/sse",
     );
   });
 });

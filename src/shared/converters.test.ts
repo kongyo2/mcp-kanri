@@ -88,10 +88,10 @@ describe('toClaudeCli', () => {
       ...stdioWithEnv,
       command: 'python',
       args: ['server.py', '--port', '8080'],
-      env: { A: '1', B: 'hello world' },
+      env: { A: '1', B: 'hello world', C: "it's valid" },
     };
     expect(toClaudeCli(multiEnv)).toBe(
-      "claude mcp add --env A=1 --env 'B=hello world' --transport stdio --scope local airtable -- python server.py --port 8080",
+      "claude mcp add --env A=1 --env 'B=hello world' --env 'C=it'\\''s valid' --transport stdio --scope local airtable -- python server.py --port 8080",
     );
   });
 
@@ -108,10 +108,10 @@ describe('toClaudeCli', () => {
       ...httpServer,
       transport: 'sse',
       url: 'https://api.example.com/sse',
-      headers: { 'X-A': '1', 'X-B': '2' },
+      headers: { 'X-A': '1', 'X-B': "it's" },
     };
     expect(toClaudeCli(sseServer)).toBe(
-      "claude mcp add --header 'X-A: 1' --header 'X-B: 2' --transport sse --scope user notion https://api.example.com/sse",
+      "claude mcp add --header 'X-A: 1' --header 'X-B: it'\\''s' --transport sse --scope user notion https://api.example.com/sse",
     );
   });
 });

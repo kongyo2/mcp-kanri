@@ -92,10 +92,17 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     一方 Codex の設定はプロジェクト層 (`.codex/config.toml`) も読むため、
     scope が `project` / `local` の場合は「Codex config.toml」タブを
     プロジェクト直下向けに出力し、`$CODEX_HOME/config.toml` の
-    `[projects."<絶対パス>"]` に `trust_level = "trusted"` が必要なことを
-    注記します (信頼されていないプロジェクト層は読み込まれません)。貼り付け先
-    としては `~/.codex` ではなく `$CODEX_HOME` を案内するので、`CODEX_HOME`
-    を変更している環境でも Codex が実際に読むファイルを指します。
+    `[projects.'<絶対パス>']` に `trust_level = "trusted"` が必要なことを
+    注記します (信頼されていないプロジェクト層は読み込まれません)。パスは
+    シングルクォート (TOML リテラル文字列) で示します。ダブルクォートだと
+    Windows パスの `\Users` などがエスケープ扱いになり `config.toml` 全体が
+    読めなくなるためです。貼り付け先としては `~/.codex` ではなく
+    `$CODEX_HOME` を案内するので、`CODEX_HOME` を変更している環境でも
+    Codex が実際に読むファイルを指します。
+  - scope が `project` / `local` のときは「Codex CLI」タブの
+    `codex mcp add` 行自体をコメントアウトします。このコマンドには scope が
+    なく、貼り付けて実行すると意図に反して全プロジェクト共通のグローバル
+    登録になってしまうためです (注記を読む前に実行されてしまいます)。
   - Codex には `local` (自分だけ) に相当する層がないため、`local` は
     `project` と同じ `.codex/config.toml` として出力し、リポジトリで共有される
     点を注記します。`.gitignore` は未追跡のファイルにしか効かず、既に
@@ -106,8 +113,15 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     (Codex は既定の環境変数しか子プロセスに渡さないため、`env_vars` が
     引き継ぎ手段になります)。キー名と変数名が違って振り替えられない場合は
     そのまま出力し、展開されないことを CLI / TOML の両タブで注記します。
-  - `codex mcp add --env KEY=VALUE` はキー側だけを trim し、`=` を含むキーは
-    最初の `=` で分割するため、そうした env キーがある登録には注記を出します。
+  - `codex mcp add --env KEY=VALUE` はキー側だけを trim するため、前後に空白の
+    ある env キーには注記を出します。`=` を含むキーや空のキーはプロセスの環境
+    (`NAME=VALUE` 形式) でそもそも表現できないので、CLI / TOML の両タブで
+    キー名の変更を促します。
+  - `${KEY}` 参照を `env_vars` に振り替える案内では、`codex mcp add` が env を
+    `[mcp_servers.<name>.env]` サブテーブルに書き出すこと、`env_vars` は親の
+    `[mcp_servers.<name>]` テーブル側に置く必要があることまで明記します
+    (サブテーブル内に置くと `invalid type: sequence, expected a string` で
+    失敗するため)。
   - `Authorization` に値を直接書いた登録は、`config.toml` に平文で残ること、
     Codex が Bearer 認証済みとみなして `codex mcp login` の OAuth フローを
     行わないことを注記します。Bearer トークンには `Bearer ${VAR}` 形式を、
@@ -238,10 +252,17 @@ another format on the fly.
     config loader does read a project layer (`.codex/config.toml`), so for the
     `project` / `local` scopes the "Codex config.toml" tab targets the project
     root and notes that `$CODEX_HOME/config.toml` needs
-    `trust_level = "trusted"` under `[projects."<absolute path>"]` — an
-    untrusted project layer is skipped entirely. Paste targets name
-    `$CODEX_HOME` rather than a hard-coded `~/.codex`, so they still point at
-    the file Codex actually reads when `CODEX_HOME` is customised.
+    `trust_level = "trusted"` under `[projects.'<absolute path>']` — an
+    untrusted project layer is skipped entirely. The path is shown
+    single-quoted (a TOML literal string) because in double quotes a Windows
+    path like `\Users` is read as an escape and the whole `config.toml` stops
+    loading. Paste targets name `$CODEX_HOME` rather than a hard-coded
+    `~/.codex`, so they still point at the file Codex actually reads when
+    `CODEX_HOME` is customised.
+  - For the `project` / `local` scopes the `codex mcp add` line in the "Codex
+    CLI" tab is itself commented out: the command has no scope, so pasting it
+    would register the server globally — against the chosen scope, and before
+    the reader reaches the note explaining that.
   - Codex has no `local` (private to you) layer, so `local` is emitted as the
     same `.codex/config.toml` as `project`, with a note that the file is
     shared with everyone who checks out the repository. Since `.gitignore`
@@ -253,9 +274,15 @@ another format on the fly.
     environment variables to stdio children, and `env_vars` is what forwards
     the rest.) When the key and the variable name differ the entry is kept
     as-is, and both the CLI and TOML tabs note that it will not be expanded.
-  - `codex mcp add --env KEY=VALUE` trims the key only and splits a key
-    containing `=` at the first `=`, so registrations with such env keys get a
-    note.
+  - `codex mcp add --env KEY=VALUE` trims the key only, so env keys with
+    surrounding whitespace get a note. A key containing `=` or an empty key
+    cannot be represented in a process environment (a list of `NAME=VALUE`
+    entries) at all, so both tabs ask for the key to be renamed.
+  - The advice for moving a `${KEY}` reference to `env_vars` spells out that
+    `codex mcp add` writes env into a `[mcp_servers.<name>.env]` sub-table and
+    that `env_vars` belongs in the parent `[mcp_servers.<name>]` table —
+    inside the sub-table it fails with
+    `invalid type: sequence, expected a string`.
   - A registration that writes the credential straight into `Authorization` is
     flagged: it is stored in plain text in `config.toml`, and Codex treats the
     server as already bearer-authenticated, so `codex mcp login` never starts

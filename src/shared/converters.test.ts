@@ -212,7 +212,7 @@ describe('toCodexCli', () => {
   });
 
   it('emits --env KEY=VALUE flags for stdio env (Codex uses the long --env flag only)', () => {
-    expect(firstLine(toCodexCli(stdioWithEnv))).toBe(
+    expect(toCodexCli({ ...stdioWithEnv, scope: 'user' })).toBe(
       'codex mcp add --env AIRTABLE_API_KEY=YOUR_KEY airtable -- npx -y airtable-mcp-server',
     );
   });
@@ -299,12 +299,18 @@ describe('toCodexCli', () => {
     expect(noteBody(toCodexCli(sseServer))).toContain('mcp-remote arguments stored in plain text');
   });
 
-  it('notes that `codex mcp add` has no scope and always writes the global config', () => {
-    const note = noteBody(toCodexCli({ ...stdioBase, scope: 'project' }));
-    expect(note).toContain('no scope option');
-    expect(note).toContain('$CODEX_HOME/config.toml');
-    expect(note).toContain('scope="project"');
-    expect(note).toContain('trust_level = "trusted"');
+  it('comments out the global add for a non-user scope so pasting cannot register globally', () => {
+    const out = toCodexCli({ ...stdioBase, scope: 'project' });
+    expect(out.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+    expect(out).toContain('# codex mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest');
+    expect(out).toContain('scope="project" cannot be expressed');
+    expect(out).toContain('commented out');
+    expect(out).toContain('$CODEX_HOME/config.toml');
+    expect(out).toContain('trust_level = "trusted"');
+  });
+
+  it('keeps the command executable for user scope', () => {
+    expect(firstLine(toCodexCli({ ...stdioBase, scope: 'user' }))).not.toContain('#');
   });
 
   it('adds the shared-checkout caveat for local scope only', () => {
@@ -327,12 +333,18 @@ describe('toCodexCli', () => {
     expect(note).toContain('" TOKEN "');
   });
 
-  it('warns when an env key is empty or contains = (KEY=VALUE is split at the first =)', () => {
+  it('tells the user to rename an env key that is empty or contains =', () => {
     const malformed: McpServer = { ...stdioBase, env: { 'A=B': 'c', '  ': 'd' } };
     const note = noteBody(toCodexCli(malformed));
-    expect(note).toContain('not parsed correctly');
+    expect(note).toContain('cannot be used as environment variable names');
+    expect(note).toContain('Rename the key');
     expect(note).toContain('"A=B"');
     expect(note).toContain('"  "');
+  });
+
+  it('repeats the malformed-key warning in the TOML tab, which cannot fix it either', () => {
+    const malformed: McpServer = { ...stdioBase, env: { 'A=B': 'c' } };
+    expect(toCodexToml(malformed)).toContain('Rename the key');
   });
 
   it('keeps an env key with an embedded newline inside a single comment line', () => {
@@ -349,6 +361,14 @@ describe('toCodexCli', () => {
     expect(firstLine(out)).toContain("--env 'NOTION_TOKEN=${NOTION_TOKEN}'");
     expect(noteBody(out)).toContain('verbatim');
     expect(noteBody(out)).toContain('env_vars');
+  });
+
+  it('says env_vars belongs in the parent table, not the generated env sub-table', () => {
+    const envRef: McpServer = { ...stdioBase, env: { NOTION_TOKEN: '${NOTION_TOKEN}' } };
+    const note = noteBody(toCodexCli(envRef));
+    expect(note).toContain('[mcp_servers.<name>.env] sub-table');
+    expect(note).toContain('parent [mcp_servers.<name>] table');
+    expect(note).toContain('invalid type: sequence, expected a string');
   });
 
   it('warns about a ${VAR} env value whose key differs, which env_vars cannot express', () => {
@@ -428,7 +448,9 @@ describe('toCodexToml', () => {
       '# Paste into: .codex/config.toml at the project root (scope: project)',
     );
     expect(text).toContain('trust_level = "trusted"');
-    expect(text).toContain('[projects."<absolute project path>"]');
+    expect(text).toContain("[projects.'<absolute project path>']");
+    expect(text).not.toContain('[projects."<absolute project path>"]');
+    expect(text).toContain('TOML literal string');
   });
 
   it('adds the shared-checkout caveat for local scope', () => {

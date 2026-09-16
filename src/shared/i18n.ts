@@ -167,21 +167,25 @@ const ja = {
   'converters.codexCli.envKeyTrimmed.line1': '# 注: 次の env キーは前後に空白を含みます: {keys}',
   'converters.codexCli.envKeyTrimmed.line2':
     '#     `codex mcp add --env KEY=VALUE` はキー側だけを trim するため、"Codex config.toml" タブの出力とキー名がずれます。',
-  'converters.codexCli.envKeyMalformed.line1':
-    '# 注: 次の env キーは `codex mcp add --env KEY=VALUE` では正しく解釈されません: {keys}',
-  'converters.codexCli.envKeyMalformed.line2':
-    '#     `=` を含むキーは最初の `=` で分割され、空のキーはエラーになります。"Codex config.toml" タブの `env` を直接貼り付けてください。',
+  'converters.codex.envKeyMalformed.line1':
+    '# 注: 次の env キーは環境変数名として使えません: {keys}',
+  'converters.codex.envKeyMalformed.line2':
+    '#     プロセスの環境は NAME=VALUE 形式なので `=` を含むキーは表現できず (`A=B` に `c` を入れても A に B=c が入ります)、空のキーは `codex mcp add` がエラーにします。キー名を変更してください。',
   'converters.codexCli.envRef.line1':
     '# 注: 次の env は値が `${VAR}` 形式ですが、Codex は `env` の値を展開せずそのまま子プロセスへ渡します: {keys}',
   'converters.codexCli.envRef.line2':
-    '#     実行後に該当行を "Codex config.toml" タブの `env_vars` へ置き換えると、Codex 自身の環境変数から値を引き継げます。',
+    '#     `codex mcp add` は env を [mcp_servers.<name>.env] サブテーブルに書き出すので、実行後に該当行をそこから削除し、',
+  'converters.codexCli.envRef.line3':
+    '#     親の [mcp_servers.<name>] テーブル (env サブテーブルより前) に `env_vars` を追加してください。env サブテーブル内に置くと invalid type: sequence, expected a string で失敗します。',
 
   'converters.codex.noScope.line1':
-    '# 注: `codex mcp add` に scope 相当のオプションはなく、常に $CODEX_HOME/config.toml (既定 ~/.codex/config.toml) へ書き込みます。',
+    '# 注: scope="{scope}" は `codex mcp add` では表現できません (scope 相当のオプションがなく、常に $CODEX_HOME/config.toml = 既定 ~/.codex/config.toml へ書き込みます)。',
   'converters.codex.noScope.line2':
-    '#     scope="{scope}" を反映するには、"Codex config.toml" タブの内容をプロジェクト直下の .codex/config.toml に貼り付けてください。',
+    '#     実行すると全プロジェクトで有効なグローバル登録になってしまうため、下のコマンドはコメントアウトしてあります。',
   'converters.codex.noScope.line3':
-    '#     プロジェクト層は $CODEX_HOME/config.toml の [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
+    '#     代わりに "Codex config.toml" タブの内容を、プロジェクト直下の .codex/config.toml に貼り付けてください。',
+  'converters.codex.noScope.line4':
+    '#     プロジェクト層は $CODEX_HOME/config.toml の [projects.\'<プロジェクトの絶対パス>\'] に trust_level = "trusted" がある場合のみ読み込まれます。',
   'converters.codex.localScope.line1':
     '# 注: Codex には local (自分だけ) に相当する層がなく、.codex/config.toml はリポジトリで共有されます。',
   'converters.codex.localScope.line2':
@@ -215,7 +219,9 @@ const ja = {
   'converters.codexToml.projectTrust.line1':
     '# 注: プロジェクト層 (.codex/config.toml) は、$CODEX_HOME/config.toml の',
   'converters.codexToml.projectTrust.line2':
-    '#     [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
+    '#     [projects.\'<プロジェクトの絶対パス>\'] に trust_level = "trusted" がある場合のみ読み込まれます。',
+  'converters.codexToml.projectTrust.line3':
+    '#     キーはシングルクォート (TOML リテラル文字列) にしてください。ダブルクォートだと Windows パスの `\\Users` などがエスケープ扱いになり、config.toml 全体が読み込めなくなります。',
   'converters.codexToml.envVars.line1':
     '# 注: 次の env は値が同名の `${VAR}` 参照だったため、`env_vars` に振り替えました: {keys}',
   'converters.codexToml.envVars.line2':
@@ -386,21 +392,25 @@ const en: Record<MessageKey, string> = {
     '# Note: these env keys have leading or trailing whitespace: {keys}',
   'converters.codexCli.envKeyTrimmed.line2':
     '#       `codex mcp add --env KEY=VALUE` trims the key only, so the stored key differs from the "Codex config.toml" tab.',
-  'converters.codexCli.envKeyMalformed.line1':
-    '# Note: these env keys are not parsed correctly by `codex mcp add --env KEY=VALUE`: {keys}',
-  'converters.codexCli.envKeyMalformed.line2':
-    '#       A key containing `=` is split at the first `=`, and an empty key is rejected. Paste the `env` line from the "Codex config.toml" tab instead.',
+  'converters.codex.envKeyMalformed.line1':
+    '# Note: these env keys cannot be used as environment variable names: {keys}',
+  'converters.codex.envKeyMalformed.line2':
+    '#       A process environment is a list of NAME=VALUE entries, so a key containing `=` cannot be represented (`A=B` set to `c` arrives as `A` with the value `B=c`), and an empty key is rejected by `codex mcp add`. Rename the key.',
   'converters.codexCli.envRef.line1':
     '# Note: these env values look like `${VAR}`, but Codex passes `env` values to the child process verbatim: {keys}',
   'converters.codexCli.envRef.line2':
-    '#       After running the command, replace those entries with the `env_vars` line from the "Codex config.toml" tab to inherit the value from Codex\'s own environment.',
+    '#       `codex mcp add` writes env into a [mcp_servers.<name>.env] sub-table, so after running it, delete those entries from there and',
+  'converters.codexCli.envRef.line3':
+    '#       add `env_vars` to the parent [mcp_servers.<name>] table, above the env sub-table. Inside the sub-table it fails with "invalid type: sequence, expected a string".',
 
   'converters.codex.noScope.line1':
-    '# Note: `codex mcp add` has no scope option; it always writes to $CODEX_HOME/config.toml (~/.codex/config.toml by default).',
+    '# Note: scope="{scope}" cannot be expressed with `codex mcp add` — it has no scope option and always writes to $CODEX_HOME/config.toml (~/.codex/config.toml by default).',
   'converters.codex.noScope.line2':
-    '#       To honor scope="{scope}", paste the "Codex config.toml" tab into .codex/config.toml at the project root instead.',
+    '#       Running it would register the server globally, for every project, so the command below is commented out.',
   'converters.codex.noScope.line3':
-    '#       The project layer is only loaded when $CODEX_HOME/config.toml has trust_level = "trusted" under [projects."<absolute project path>"].',
+    '#       Paste the "Codex config.toml" tab into .codex/config.toml at the project root instead.',
+  'converters.codex.noScope.line4':
+    '#       The project layer is only loaded when $CODEX_HOME/config.toml has trust_level = "trusted" under [projects.\'<absolute project path>\'].',
   'converters.codex.localScope.line1':
     '# Note: Codex has no local (private to you) layer, so .codex/config.toml is shared with everyone who checks out the repository.',
   'converters.codex.localScope.line2':
@@ -435,7 +445,9 @@ const en: Record<MessageKey, string> = {
   'converters.codexToml.projectTrust.line1':
     '# Note: the project layer (.codex/config.toml) is only loaded when $CODEX_HOME/config.toml has',
   'converters.codexToml.projectTrust.line2':
-    '#       trust_level = "trusted" under [projects."<absolute project path>"].',
+    '#       trust_level = "trusted" under [projects.\'<absolute project path>\'].',
+  'converters.codexToml.projectTrust.line3':
+    '#       Keep the single quotes (a TOML literal string): in double quotes a Windows path like `\\Users` is read as an escape and the whole config.toml stops loading.',
   'converters.codexToml.envVars.line1':
     '# Note: these env values were `${VAR}` references naming the same key, so they moved to `env_vars`: {keys}',
   'converters.codexToml.envVars.line2':

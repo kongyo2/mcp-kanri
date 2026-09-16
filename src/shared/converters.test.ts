@@ -152,6 +152,17 @@ describe('toClaudeCli', () => {
     expect(note).not.toContain('secret');
   });
 
+  it('keeps a key with an embedded newline inside the shell comment', () => {
+    const injected: McpServer = {
+      ...httpServer,
+      headers: { ' X-A\nrm -rf /': 'value' },
+    };
+    const lines = toClaudeCli(injected).split('\n');
+    const notes = lines.slice(lines.findIndex((line) => line.startsWith('#')));
+    expect(notes.every((line) => line.startsWith('#'))).toBe(true);
+    expect(notes.join(' ')).toContain('headers.X-A rm -rf /');
+  });
+
   it('flags whitespace in remote url and header keys', () => {
     const padded: McpServer = {
       ...httpServer,

@@ -141,13 +141,19 @@ function hasEdgeWhitespace(value: string): boolean {
   return value !== value.trim();
 }
 
+const LINE_BREAK = /[\r\n]+/;
+
+function fieldLabel(group: 'env' | 'headers', key: string): string {
+  return `${group}.${key.trim().split(LINE_BREAK).join(' ')}`;
+}
+
 function recordWhitespaceFields(
   group: 'env' | 'headers',
   record: Record<string, string>,
 ): string[] {
   const fields: string[] = [];
   for (const [key, value] of Object.entries(record)) {
-    if (hasEdgeWhitespace(key) || hasEdgeWhitespace(value)) fields.push(`${group}.${key.trim()}`);
+    if (hasEdgeWhitespace(key) || hasEdgeWhitespace(value)) fields.push(fieldLabel(group, key));
   }
   return fields;
 }
@@ -216,8 +222,13 @@ function claudeCliNotes(server: McpServer, locale: Locale): string[] {
   return notes;
 }
 
+function asShellComment(note: string): string[] {
+  return note.split(LINE_BREAK).map((line) => (line.startsWith('#') ? line : `# ${line}`));
+}
+
 export function toClaudeCli(server: McpServer, locale: Locale = 'en'): string {
-  return [claudeAddCommand(server), ...claudeCliNotes(server, locale)].join('\n');
+  const notes = claudeCliNotes(server, locale).flatMap(asShellComment);
+  return [claudeAddCommand(server), ...notes].join('\n');
 }
 
 export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {

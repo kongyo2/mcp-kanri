@@ -413,6 +413,7 @@ function codexEnvUnexpandedNotes(unexpanded: readonly string[], locale: Locale):
   return [
     translate(locale, 'converters.codex.envUnexpanded.line1', { keys: joinForNote(unexpanded) }),
     translate(locale, 'converters.codex.envUnexpanded.line2'),
+    translate(locale, 'converters.codex.envUnexpanded.line3'),
   ];
 }
 
@@ -480,7 +481,7 @@ export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {
   }
 
   const scopeNotes = codexScopeNotes(server, locale).flatMap(asCommentLines);
-  return [...scopeNotes, `# ${command}`, ...transportNotes].join('\n');
+  return [...scopeNotes, ...asCommentLines(command), ...transportNotes].join('\n');
 }
 
 function toGeminiLikeCli(bin: 'gemini' | 'qwen', server: McpServer): string {

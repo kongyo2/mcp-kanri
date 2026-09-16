@@ -313,6 +313,17 @@ describe('toCodexCli', () => {
     expect(firstLine(toCodexCli({ ...stdioBase, scope: 'user' }))).not.toContain('#');
   });
 
+  it('comments every physical line so a multiline value cannot escape the disabled block', () => {
+    const injected: McpServer = {
+      ...stdioBase,
+      scope: 'project',
+      env: { K: 'foo\necho PWNED' },
+    };
+    const lines = toCodexCli(injected).split('\n');
+    expect(lines.every((line) => line.startsWith('#'))).toBe(true);
+    expect(lines).toContain("# echo PWNED' chrome-devtools -- npx -y chrome-devtools-mcp@latest");
+  });
+
   it('adds the shared-checkout caveat for local scope only', () => {
     expect(noteBody(toCodexCli({ ...stdioBase, scope: 'local' }))).toContain(
       'Codex has no local (private to you) layer',
@@ -377,6 +388,14 @@ describe('toCodexCli', () => {
     expect(firstLine(out)).toContain("--env 'API_KEY=${MY_TOKEN}'");
     expect(noteBody(out)).toContain('"API_KEY"');
     expect(noteBody(out)).toContain('without expanding them');
+  });
+
+  it('never tells the user to rename a key the server expects', () => {
+    const envRef: McpServer = { ...stdioBase, env: { API_KEY: '${MY_TOKEN}' } };
+    const note = noteBody(toCodexCli(envRef));
+    expect(note).toContain('Do not rename the key');
+    expect(note).toContain("export the value under the key's own name");
+    expect(note).not.toContain('rename the key to match');
   });
 });
 

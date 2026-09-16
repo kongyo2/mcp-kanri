@@ -212,7 +212,9 @@ const ja = {
   'converters.codex.envUnexpanded.line1':
     '# 注: 次の env は値が `${VAR}` 形式ですが、キー名と変数名が異なるため `env_vars` に振り替えられません: {keys}',
   'converters.codex.envUnexpanded.line2':
-    '#     Codex は `env` の値を展開せずそのまま渡すので、実際の値を書くかキー名を変数名に合わせてください。',
+    '#     Codex は `env` の値を展開せずそのまま渡すので、実際の値をここに書いてください。',
+  'converters.codex.envUnexpanded.line3':
+    '#     環境変数から引き継ぎたい場合は、キーと同じ名前の変数を Codex 側に用意して `env_vars` に指定します。キー名の方は変えないでください (サーバが期待する変数名です)。',
 
   'converters.codexToml.target.user': '# 貼り付け先: {path} (既定 {defaultPath})',
   'converters.codexToml.target.project': '# 貼り付け先: プロジェクト直下の {path} (scope: {scope})',
@@ -437,7 +439,9 @@ const en: Record<MessageKey, string> = {
   'converters.codex.envUnexpanded.line1':
     '# Note: these env values look like `${VAR}` but the key and the variable name differ, so `env_vars` cannot express them: {keys}',
   'converters.codex.envUnexpanded.line2':
-    '#       Codex passes `env` values through without expanding them, so write the real value or rename the key to match the variable.',
+    '#       Codex passes `env` values through without expanding them, so write the real value here.',
+  'converters.codex.envUnexpanded.line3':
+    "#       To inherit it instead, export the value under the key's own name in Codex's environment and list that name in `env_vars`. Do not rename the key — the server expects it.",
 
   'converters.codexToml.target.user': '# Paste into: {path} (default: {defaultPath})',
   'converters.codexToml.target.project':

@@ -103,6 +103,8 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `codex mcp add` 行自体をコメントアウトします。このコマンドには scope が
     なく、貼り付けて実行すると意図に反して全プロジェクト共通のグローバル
     登録になってしまうためです (注記を読む前に実行されてしまいます)。
+    コメント化は注記と同じ行単位の処理を通すので、env の値などに改行が
+    含まれていても 2 行目以降が素のシェル行として残ることはありません。
   - Codex には `local` (自分だけ) に相当する層がないため、`local` は
     `project` と同じ `.codex/config.toml` として出力し、リポジトリで共有される
     点を注記します。`.gitignore` は未追跡のファイルにしか効かず、既に
@@ -262,7 +264,9 @@ another format on the fly.
   - For the `project` / `local` scopes the `codex mcp add` line in the "Codex
     CLI" tab is itself commented out: the command has no scope, so pasting it
     would register the server globally — against the chosen scope, and before
-    the reader reaches the note explaining that.
+    the reader reaches the note explaining that. The command goes through the
+    same line-by-line comment conversion as the notes, so a newline inside an
+    env value cannot leave a later physical line as live shell.
   - Codex has no `local` (private to you) layer, so `local` is emitted as the
     same `.codex/config.toml` as `project`, with a note that the file is
     shared with everyone who checks out the repository. Since `.gitignore`

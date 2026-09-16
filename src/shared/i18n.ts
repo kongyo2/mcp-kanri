@@ -200,6 +200,11 @@ const ja = {
     '# 注: SSE 用のヘッダは mcp-remote の引数として config.toml に平文で残り、Codex は `${VAR}` を展開しません。',
   'converters.codex.sseHeaders.line2':
     '#     秘密情報を含む場合は、Streamable HTTP + `bearer_token_env_var` / `env_http_headers` への切り替えを検討してください。',
+  'converters.codex.headerUnexpanded.line1':
+    '# 注: 次のヘッダは `env_http_headers` に振り替えられない `${...}` 参照を含んでいます: {keys}',
+  'converters.codex.headerUnexpanded.line2':
+    '#     Codex は `http_headers` の値をそのまま送るため、リテラルの文字列がサーバへ渡ります。値全体を `${VAR}` (既定値や前後の文字なし) にすれば環境変数から読まれます。',
+
   'converters.codex.plainAuth.line1':
     '# 注: Authorization ヘッダに値を直接書いているため、{path} に平文で保存されます。',
   'converters.codex.plainAuth.bearer':
@@ -429,6 +434,11 @@ const en: Record<MessageKey, string> = {
     '# Note: SSE headers end up as mcp-remote arguments stored in plain text in config.toml, and Codex does not expand `${VAR}`.',
   'converters.codex.sseHeaders.line2':
     '#       For secrets, prefer Streamable HTTP with `bearer_token_env_var` / `env_http_headers`.',
+  'converters.codex.headerUnexpanded.line1':
+    '# Note: these headers hold a `${...}` reference that cannot be mapped to `env_http_headers`: {keys}',
+  'converters.codex.headerUnexpanded.line2':
+    '#       Codex sends `http_headers` values verbatim, so the server receives the literal text. Make the whole value a plain `${VAR}` (no default, no surrounding text) to read it from the environment.',
+
   'converters.codex.plainAuth.line1':
     '# Note: the Authorization header holds the credential itself, so it is stored in plain text in {path}.',
   'converters.codex.plainAuth.bearer':

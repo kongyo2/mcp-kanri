@@ -311,6 +311,22 @@ export interface CodexPlaintextAuthPartition {
   readonly other: readonly string[];
 }
 
+export function codexUnexpandedHeaders(headers: Record<string, string>): string[] {
+  const { staticHttpHeaders } = partitionCodexHttpHeaders(headers);
+  return Object.entries(staticHttpHeaders)
+    .filter(([, value]) => ENV_REF_ANYWHERE.test(value))
+    .map(([key]) => key);
+}
+
+function codexHeaderUnexpandedNotes(headers: Record<string, string>, locale: Locale): string[] {
+  const fields = codexUnexpandedHeaders(headers);
+  if (fields.length === 0) return [];
+  return [
+    translate(locale, 'converters.codex.headerUnexpanded.line1', { keys: joinForNote(fields) }),
+    translate(locale, 'converters.codex.headerUnexpanded.line2'),
+  ];
+}
+
 export function codexPlaintextAuthHeaders(
   headers: Record<string, string>,
 ): CodexPlaintextAuthPartition {
@@ -467,6 +483,7 @@ function codexCliTransportNotes(server: McpServer, locale: Locale): string[] {
       }),
     );
   }
+  notes.push(...codexHeaderUnexpandedNotes(server.headers, locale));
   notes.push(...codexPlaintextAuthNotes(server.headers, server.scope, locale));
   return notes;
 }
@@ -799,6 +816,7 @@ function codexTomlTrailingNotes(server: McpServer, locale: Locale): string[] {
     notes.push(...codexSseNotes(server, locale));
     return notes;
   }
+  notes.push(...codexHeaderUnexpandedNotes(server.headers, locale));
   notes.push(...codexPlaintextAuthNotes(server.headers, server.scope, locale));
   return notes;
 }

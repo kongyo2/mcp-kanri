@@ -4,6 +4,7 @@ import {
   codexConfigPath,
   codexEnvKeyIssues,
   codexPlaintextAuthHeaders,
+  codexUnexpandedHeaders,
   formatServer,
   grokNameIssues,
   grokTreatsAsSse,
@@ -541,6 +542,18 @@ describe('toCodexToml', () => {
     expect(text).not.toContain('plain text');
   });
 
+  it('warns that a ${VAR:-default} header is sent verbatim, in both tabs', () => {
+    const defaulted: McpServer = {
+      ...httpServer,
+      headers: { 'X-Token': '${TOKEN:-fallback}' },
+    };
+    const toml = toCodexToml(defaulted);
+    expect(toml).toContain('http_headers = { X-Token = "${TOKEN:-fallback}" }');
+    expect(toml).toContain('cannot be mapped to `env_http_headers`');
+    expect(toml).toContain('"X-Token"');
+    expect(noteBody(toCodexCli(defaulted))).toContain('cannot be mapped to `env_http_headers`');
+  });
+
   it('maps non-Authorization ${ENV_VAR} headers to env_http_headers', () => {
     const envHeaderServer: McpServer = {
       ...httpServer,
@@ -627,6 +640,21 @@ describe('codex helpers', () => {
       envVars: [],
       unexpanded: ['A', 'B', 'C'],
     });
+  });
+
+  it('reports headers whose ${...} reference cannot become env_http_headers', () => {
+    expect(
+      codexUnexpandedHeaders({
+        Exact: '${TOKEN}',
+        Defaulted: '${TOKEN:-fallback}',
+        Embedded: 'Bearer ${TOKEN}',
+        Plain: 'literal',
+      }),
+    ).toEqual(['Defaulted', 'Embedded']);
+  });
+
+  it('does not report an Authorization header already mapped to bearer_token_env_var', () => {
+    expect(codexUnexpandedHeaders({ Authorization: 'Bearer ${TOKEN}' })).toEqual([]);
   });
 
   it('splits literal Authorization values by scheme so the advice matches', () => {

@@ -120,6 +120,10 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `${VAR:-default}` や `prefix-${VAR}` のように `env_vars` へ振り替えられない
     形の参照も同じ注記の対象です (Codex は展開しないため、そのままの文字列が
     サーバに渡ります)。
+  - HTTP ヘッダも同様で、`env_http_headers` / `bearer_token_env_var` に
+    振り替えられなかった値に `${...}` が残っている場合は注記を出します。
+    Codex は `http_headers` の値をそのまま送るため、`${VAR:-default}` などは
+    リテラルのままサーバへ渡ってしまうからです。
   - `codex mcp add --env KEY=VALUE` はキー側だけを trim するため、前後に空白の
     ある env キーには注記を出します。`=` を含むキーや空のキーはプロセスの環境
     (`NAME=VALUE` 形式) でそもそも表現できないので、CLI / TOML の両タブで
@@ -288,6 +292,10 @@ another format on the fly.
     References that `env_vars` cannot express at all — `${VAR:-default}`,
     `prefix-${VAR}` and friends — get the same note, since Codex hands the
     literal text to the server.
+  - HTTP headers get the matching treatment: when a value still holds a
+    `${...}` after the `env_http_headers` / `bearer_token_env_var` mapping, it
+    is flagged, because Codex sends `http_headers` values verbatim and the
+    server would receive the literal `${VAR:-default}` text.
   - `codex mcp add --env KEY=VALUE` trims the key only, so env keys with
     surrounding whitespace get a note. A key containing `=` or an empty key
     cannot be represented in a process environment (a list of `NAME=VALUE`

@@ -348,7 +348,7 @@ export function transition(state: AppState, intent: DomainIntent): Transition {
     }
 
     case 'clipboard/requested':
-      return { state, effects: [{ kind: 'clipboard/write', text: intent.text }] };
+      return merge(resetCopied(state), [{ kind: 'clipboard/write', text: intent.text }]);
 
     case 'clipboard/succeeded':
       return {

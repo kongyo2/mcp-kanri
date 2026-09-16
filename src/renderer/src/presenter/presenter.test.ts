@@ -211,6 +211,23 @@ describe('overlays', () => {
     expect(presentRoot(state).dialog?.busy).toBe(true);
   });
 
+  it('hides the application content from assistive tech while the dialog is up', () => {
+    expect(presentRoot(browsing()).contentHidden).toBe(false);
+    const confirming = drive(browsing(), {
+      scope: 'domain',
+      type: 'removal/requested',
+      serverId: stdioServer.id,
+    });
+    expect(presentRoot(confirming).contentHidden).toBe(true);
+  });
+
+  it('names every list control it hands to the views', () => {
+    const form = formOf(drive(browsing(), { scope: 'domain', type: 'compose/create-requested' }));
+    expect(form.stdio?.args.labelId).toBe('field-args');
+    expect(form.stdio?.args.rows[0]?.ariaLabel).toBe('Arg 1');
+    expect(form.stdio?.env.labelId).toBe('field-env');
+  });
+
   it('carries the toast kind into a class name', () => {
     const state = drive(browsing(), { scope: 'domain', type: 'store/failed', message: 'boom' });
     expect(presentRoot(state).toast).toEqual({ message: 'boom', className: 'toast error' });

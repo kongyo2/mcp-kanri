@@ -84,8 +84,9 @@ export function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
       await passGate();
       takeFailure();
       const index = store.findIndex((s) => s.id === id);
+      if (index < 0) throw new Error(`Server with id=${id} not found`);
       const server = materialize(input, id);
-      if (index >= 0) store.splice(index, 1, server);
+      store.splice(index, 1, server);
       return server;
     },
     remove: async (id) => {
@@ -142,7 +143,7 @@ export function createTestPorts(
   options: {
     readonly servers?: readonly McpServer[];
     readonly locale?: Locale;
-    readonly clipboardFails?: boolean;
+    readonly clipboardFails?: 'reject' | 'throw';
   } = {},
 ): TestPorts {
   const api = createFakeApi(options.servers ?? []);
@@ -163,9 +164,12 @@ export function createTestPorts(
     warnings,
     timers: timerControl.port,
     clipboard: {
-      writeText: async (text) => {
-        if (options.clipboardFails === true) throw new Error('clipboard denied');
+      writeText: (text) => {
+        if (options.clipboardFails === 'throw') throw new Error('clipboard unavailable');
+        if (options.clipboardFails === 'reject')
+          return Promise.reject(new Error('clipboard denied'));
         copied.push(text);
+        return Promise.resolve();
       },
     },
     document: {

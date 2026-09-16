@@ -50,7 +50,7 @@ function RootView(): JSX.Element {
   return (
     <>
       <ModalGuardNode>
-        <div className="app">
+        <div className="app" aria-hidden={vm.contentHidden || undefined}>
           <SidebarNode>
             <SidebarView vm={vm.sidebar} />
           </SidebarNode>

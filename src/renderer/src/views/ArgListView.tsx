@@ -9,13 +9,14 @@ interface Props {
 export function ArgListView({ vm }: Props): JSX.Element {
   const emit = useEmit();
   return (
-    <FieldShellView label={vm.label} hint={vm.hint}>
+    <FieldShellView labelId={vm.labelId} label={vm.label} hint={vm.hint}>
       {vm.rows.map((row) => (
         <div key={row.id} className="list-row">
           <input
             type="text"
             value={row.value}
             placeholder={row.placeholder}
+            aria-label={row.ariaLabel}
             disabled={vm.disabled}
             onChange={(event) => {
               emit({

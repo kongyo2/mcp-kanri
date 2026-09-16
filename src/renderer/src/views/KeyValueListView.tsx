@@ -9,13 +9,14 @@ interface Props {
 export function KeyValueListView({ vm }: Props): JSX.Element {
   const emit = useEmit();
   return (
-    <FieldShellView label={vm.label} hint={vm.hint}>
+    <FieldShellView labelId={vm.labelId} label={vm.label} hint={vm.hint}>
       {vm.rows.map((row) => (
         <div key={row.id} className="kv-row">
           <input
             type="text"
             placeholder={vm.keyPlaceholder}
             value={row.key}
+            aria-label={row.keyLabel}
             disabled={vm.disabled}
             onChange={(event) => {
               emit({
@@ -31,6 +32,7 @@ export function KeyValueListView({ vm }: Props): JSX.Element {
             type="text"
             placeholder={vm.valuePlaceholder}
             value={row.value}
+            aria-label={row.valueLabel}
             disabled={vm.disabled}
             onChange={(event) => {
               emit({

@@ -360,6 +360,24 @@ describe('clipboard and toast lifetimes', () => {
     expect(result.effects).toEqual([{ kind: 'timer/cancel', key: 'clipboard' }]);
   });
 
+  it('drops stale copied feedback before the next clipboard write', () => {
+    const server = makeServer();
+    const copied = drive(
+      booted([server]),
+      { scope: 'domain', type: 'server/selected', serverId: server.id },
+      { scope: 'domain', type: 'clipboard/succeeded' },
+    );
+    expect(copied.copied).toBe(true);
+
+    const result = transition(copied, {
+      scope: 'domain',
+      type: 'clipboard/requested',
+      text: 'anything',
+    });
+    expect(result.state.copied).toBe(false);
+    expect(kinds(result.effects)).toEqual(['timer/cancel', 'clipboard/write']);
+  });
+
   it('ignores an expiry that belongs to a replaced toast', () => {
     const first = transition(booted(), {
       scope: 'domain',

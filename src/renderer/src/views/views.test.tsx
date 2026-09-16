@@ -58,11 +58,19 @@ describe('detail pane', () => {
     expect(await screen.findByRole('button', { name: 'Copy' })).toBeDefined();
   });
 
-  it('surfaces a clipboard failure as an error toast', async () => {
-    const { user } = await mount({ clipboardFails: true });
+  it('surfaces a rejected clipboard write as an error toast', async () => {
+    const { user } = await mount({ clipboardFails: 'reject' });
     await user.click(screen.getByRole('button', { name: /alpha/ }));
     await user.click(await screen.findByRole('button', { name: 'Copy' }));
     expect(await screen.findByText('clipboard denied')).toBeDefined();
+  });
+
+  it('surfaces a clipboard port that throws synchronously', async () => {
+    const { user } = await mount({ clipboardFails: 'throw' });
+    await user.click(screen.getByRole('button', { name: /alpha/ }));
+    await user.click(await screen.findByRole('button', { name: 'Copy' }));
+    expect(await screen.findByText('clipboard unavailable')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeDefined();
   });
 });
 
@@ -76,8 +84,9 @@ describe('removal', () => {
     const dialog = await screen.findByRole('dialog');
     expect(dialog.textContent).toContain('Delete "alpha". Are you sure?');
 
-    await user.click(screen.getByRole('button', { name: /beta/ }));
-    expect(screen.getByRole('heading', { name: 'alpha' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: /beta/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /beta/, hidden: true }));
+    expect(screen.getByRole('heading', { name: 'alpha', hidden: true })).toBeDefined();
     expect(screen.getByRole('dialog')).toBeDefined();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -135,8 +144,8 @@ describe('editor form', () => {
 
     await user.type(screen.getByLabelText('Name (server-name)'), 'notion');
     await user.click(screen.getByRole('button', { name: '＋ Add' }));
-    await user.type(screen.getByPlaceholderText('KEY'), 'API_KEY');
-    await user.type(screen.getByPlaceholderText('VALUE'), 'secret');
+    await user.type(screen.getByLabelText('env key 1'), 'API_KEY');
+    await user.type(screen.getByLabelText('env value 1'), 'secret');
 
     expect(screen.getByRole('button', { name: 'Create' }).hasAttribute('disabled')).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Create' }));
@@ -165,6 +174,19 @@ describe('editor form', () => {
     expect(await screen.findByRole('button', { name: /notion/ })).toBeDefined();
     expect(await screen.findByText('Created "notion"')).toBeDefined();
     expect(screen.getByRole('heading', { name: 'alpha' })).toBeDefined();
+  });
+
+  it('gives every list control an accessible name', async () => {
+    const { user } = await mount();
+    await user.click(screen.getByRole('button', { name: '＋ New server' }));
+
+    expect(screen.getByRole('group', { name: 'args' })).toBeDefined();
+    expect(screen.getByRole('group', { name: 'env' })).toBeDefined();
+    expect(screen.getByLabelText('Arg 1')).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: '＋ Add' }));
+    expect(screen.getByLabelText('env key 1')).toBeDefined();
+    expect(screen.getByLabelText('env value 1')).toBeDefined();
   });
 
   it('swaps the fields when the transport tab changes', async () => {

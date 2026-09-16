@@ -46,11 +46,13 @@ function transportTagClass(transport: McpServer['transport']): string {
 
 export function presentRoot(state: AppState): RootViewModel {
   const t = translatorFor(state.locale);
+  const dialog = presentDialog(state, t);
   return {
     sidebar: presentSidebar(state, t),
     main: presentMain(state, t),
     toast: presentToast(state),
-    dialog: presentDialog(state, t),
+    dialog,
+    contentHidden: dialog !== null,
   };
 }
 
@@ -189,7 +191,7 @@ function presentEditorForm(
             args: presentArgList(draft, submitting, t),
             env: presentKeyValueList(
               draft.env,
-              { label: t('form.env.label'), hint: t('form.env.hint') },
+              { id: 'field-env', label: t('form.env.label'), hint: t('form.env.hint') },
               submitting,
               t,
             ),
@@ -213,7 +215,7 @@ function presentEditorForm(
             },
             headers: presentKeyValueList(
               draft.headers,
-              { label: t('form.headers.label'), hint: t('form.headers.hint') },
+              { id: 'field-headers', label: t('form.headers.label'), hint: t('form.headers.hint') },
               submitting,
               t,
             ),
@@ -230,26 +232,27 @@ function presentEditorForm(
 
 function presentArgList(draft: Draft, submitting: boolean, t: Translator): ArgListViewModel {
   return {
+    labelId: 'field-args',
     label: t('form.args.label'),
     hint: t('form.args.hint'),
     addLabel: t('form.args.add'),
     removeLabel: t('form.kv.remove'),
     disabled: submitting,
-    rows: draft.args.map((row, index) => ({
-      id: row.id,
-      value: row.value,
-      placeholder: t('form.args.placeholder', { index: index + 1 }),
-    })),
+    rows: draft.args.map((row, index) => {
+      const name = t('form.args.placeholder', { index: index + 1 });
+      return { id: row.id, value: row.value, placeholder: name, ariaLabel: name };
+    }),
   };
 }
 
 function presentKeyValueList(
   rows: readonly { id: string; key: string; value: string }[],
-  labels: { label: string; hint: string },
+  labels: { id: string; label: string; hint: string },
   submitting: boolean,
   t: Translator,
 ): KeyValueListViewModel {
   return {
+    labelId: labels.id,
     label: labels.label,
     hint: labels.hint,
     addLabel: t('form.kv.add'),
@@ -257,7 +260,13 @@ function presentKeyValueList(
     keyPlaceholder: 'KEY',
     valuePlaceholder: 'VALUE',
     disabled: submitting,
-    rows: rows.map((row) => ({ id: row.id, key: row.key, value: row.value })),
+    rows: rows.map((row, index) => ({
+      id: row.id,
+      key: row.key,
+      value: row.value,
+      keyLabel: t('form.kv.keyLabel', { group: labels.label, index: index + 1 }),
+      valueLabel: t('form.kv.valueLabel', { group: labels.label, index: index + 1 }),
+    })),
   };
 }
 

@@ -54,9 +54,11 @@ export interface ArgRowViewModel {
   readonly id: string;
   readonly value: string;
   readonly placeholder: string;
+  readonly ariaLabel: string;
 }
 
 export interface ArgListViewModel {
+  readonly labelId: string;
   readonly label: string;
   readonly hint: string | null;
   readonly addLabel: string;
@@ -69,9 +71,12 @@ export interface KeyValueRowViewModel {
   readonly id: string;
   readonly key: string;
   readonly value: string;
+  readonly keyLabel: string;
+  readonly valueLabel: string;
 }
 
 export interface KeyValueListViewModel {
+  readonly labelId: string;
   readonly label: string;
   readonly hint: string | null;
   readonly addLabel: string;
@@ -183,4 +188,5 @@ export interface RootViewModel {
   readonly main: MainViewModel;
   readonly toast: ToastViewModel | null;
   readonly dialog: ConfirmDialogViewModel | null;
+  readonly contentHidden: boolean;
 }

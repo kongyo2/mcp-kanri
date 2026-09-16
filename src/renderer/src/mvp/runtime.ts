@@ -17,26 +17,26 @@ export class EffectRunner {
     switch (effect.kind) {
       case 'store/list':
         void this.#settle(
-          this.#ports.api.list(),
+          () => this.#ports.api.list(),
           (servers) => ({ scope: 'domain', type: 'store/listed', servers }),
           (message) => ({ scope: 'domain', type: 'store/failed', message }),
         );
         return;
 
       case 'store/path':
-        void this.#ports.api.getStorePath().then(
-          (path) => {
+        void (async () => {
+          try {
+            const path = await this.#ports.api.getStorePath();
             this.#emit({ scope: 'domain', type: 'store/path-resolved', path });
-          },
-          (err: unknown) => {
+          } catch (err) {
             this.#ports.logger.warn('failed to resolve store path', err);
-          },
-        );
+          }
+        })();
         return;
 
       case 'store/create':
         void this.#settle(
-          this.#ports.api.create(effect.input),
+          () => this.#ports.api.create(effect.input),
           (server) => ({
             scope: 'domain',
             type: 'submit/succeeded',
@@ -55,7 +55,7 @@ export class EffectRunner {
 
       case 'store/update':
         void this.#settle(
-          this.#ports.api.update(effect.id, effect.input),
+          () => this.#ports.api.update(effect.id, effect.input),
           (server) => ({
             scope: 'domain',
             type: 'submit/succeeded',
@@ -74,16 +74,20 @@ export class EffectRunner {
 
       case 'store/remove':
         void this.#settle(
-          this.#ports.api.remove(effect.serverId),
+          () => this.#ports.api.remove(effect.serverId),
           () => ({ scope: 'domain', type: 'removal/succeeded' }),
           (message) => ({ scope: 'domain', type: 'removal/failed', message }),
         );
         return;
 
       case 'locale/publish':
-        void this.#ports.api.setLocale(effect.locale).catch((err: unknown) => {
-          this.#ports.logger.warn('failed to publish locale to main process', err);
-        });
+        void (async () => {
+          try {
+            await this.#ports.api.setLocale(effect.locale);
+          } catch (err) {
+            this.#ports.logger.warn('failed to publish locale to main process', err);
+          }
+        })();
         return;
 
       case 'locale/persist':
@@ -100,7 +104,7 @@ export class EffectRunner {
 
       case 'clipboard/write':
         void this.#settle(
-          this.#ports.clipboard.writeText(effect.text),
+          () => this.#ports.clipboard.writeText(effect.text),
           () => ({ scope: 'domain', type: 'clipboard/succeeded' }),
           (message) => ({ scope: 'domain', type: 'clipboard/failed', message }),
         );
@@ -132,12 +136,12 @@ export class EffectRunner {
   }
 
   async #settle<T>(
-    work: Promise<T>,
+    work: () => Promise<T>,
     onSuccess: (value: T) => DomainIntent,
     onFailure: (message: string) => DomainIntent,
   ): Promise<void> {
     try {
-      this.#emit(onSuccess(await work));
+      this.#emit(onSuccess(await work()));
     } catch (err) {
       this.#emit(onFailure(errorMessage(err)));
     }

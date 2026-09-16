@@ -108,7 +108,7 @@ const ja = {
     '`grok mcp add` コマンド形式 (user は `%USERPROFILE%\\.grok\\config.toml`、project は `.grok\\config.toml` に書き込み)',
   'format.opencode-cli.title': 'opencode CLI',
   'format.opencode-cli.subtitle':
-    '`opencode mcp add` コマンド形式 (名前を渡す非対話モードには scope 相当のオプションがなく、常にグローバル設定 `~/.config/opencode/opencode.json` へ書き込み)',
+    '`opencode mcp add` コマンド形式 (名前を渡す非対話モードには scope 相当のオプションがなく、常にグローバル設定 `$XDG_CONFIG_HOME/opencode/opencode.json` = 既定 `~/.config/opencode/opencode.json` へ書き込み)',
   'format.claude-desktop.title': 'Claude Desktop',
   'format.claude-desktop.subtitle':
     '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
@@ -124,7 +124,7 @@ const ja = {
     '`%USERPROFILE%\\.grok\\config.toml` (user) / `.grok\\config.toml` (project) 用 TOML 抜粋 (HTTP / SSE はネイティブ対応でブリッジ不要)',
   'format.opencode-json.title': 'opencode.json',
   'format.opencode-json.subtitle':
-    '`~/.config/opencode/opencode.json` (user) / プロジェクト直下の `opencode.json` (project) 用 `mcp` 抜粋 (JSONC なので `//` コメント可、HTTP / SSE は `type: "remote"` でネイティブ対応)',
+    '`$XDG_CONFIG_HOME/opencode/opencode.json` (user・既定 `~/.config/opencode/opencode.json`) / プロジェクト直下の `opencode.json` (project) 用 `mcp` 抜粋 (JSONC なので `//` コメント可、HTTP / SSE は `type: "remote"` でネイティブ対応)',
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (リモートは `serverUrl` キー / SSE は npx mcp-remote でブリッジ)',
@@ -178,14 +178,24 @@ const ja = {
   'converters.opencode.localScope.line1':
     '# 注: opencode の設定は global / project の 2 階層だけのため、local はプロジェクト直下の `opencode.json` として出力しています。',
   'converters.opencode.localScope.line2':
-    '#     コミットしたくない場合は `opencode.json` を .gitignore に追加するか、scope を user に変更してください。',
+    '#     `opencode.json` が未追跡の場合に限り .gitignore で除外できます。すでにコミット済みのファイルは .gitignore を追加しても変更が追跡され続けるので、秘密情報は値に直接書かず `{env:VAR}` で環境変数を参照するか、scope を user にしてリポジトリ外のグローバル設定に置いてください。',
   'converters.opencodeCli.globalOnly.line1':
-    '# 注: scope に {scope} を指定していますが、名前を渡す非対話モードの `opencode mcp add` には scope 相当のオプションがありません。',
+    '# 注: scope="{scope}" は `opencode mcp add` では表現できません (名前を渡す非対話モードに scope 相当のオプションがなく、常にグローバル設定へ書き込みます)。',
   'converters.opencodeCli.globalOnly.line2':
-    '#     常にグローバル設定へ書き込まれるため、プロジェクト側の `{path}` に入れたい場合は "opencode.json" タブの出力を使うか、',
+    '#     実行すると全プロジェクトで有効なグローバル登録になってしまうため、下のコマンドはコメントアウトしてあります。',
   'converters.opencodeCli.globalOnly.line3':
-    '#     引数なしの `opencode mcp add` を実行し、対話モードの Location で Current project を選んでください。',
-  'converters.opencodeJson.target': '# 書き込み先: {path}',
+    '#     代わりに "opencode.json" タブの内容を、プロジェクト直下の {path} に貼り付けてください。',
+  'converters.opencodeCli.globalOnly.line4':
+    '#     対話モードなら scope を選べます。引数なしで `opencode mcp add` を実行し、Location で Current project を選んでください。',
+  'converters.opencodeCli.keyMalformed.line1':
+    '# 注: 次のキーは `opencode mcp add {flag}` では表現できません: {keys}',
+  'converters.opencodeCli.keyMalformed.line2':
+    '#     `{flag}` は最初の `=` までをキーとして解釈するため、`=` を含むキーは壊れ (`A=B` に `c` を入れても A に B=c が入ります)、空のキーは CLI がエラーにします。',
+  'converters.opencodeCli.keyMalformed.line3':
+    '#     キー名を変更するか、キーをそのまま書ける "opencode.json" タブの出力を使ってください。',
+  'converters.opencodeJson.target.global': '# 書き込み先: {path} (既定 {defaultPath})',
+  'converters.opencodeJson.target.project':
+    '# 書き込み先: プロジェクト直下の {path} (scope: {scope})',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# 注: `codex mcp add` が扱えるヘッダは `--bearer-token-env-var` だけで、任意の HTTP ヘッダは CLI フラグで渡せません。',
@@ -371,7 +381,7 @@ const en: Record<MessageKey, string> = {
     '`grok mcp add` command form (user writes `%USERPROFILE%\\.grok\\config.toml`, project writes `.grok\\config.toml`)',
   'format.opencode-cli.title': 'opencode CLI',
   'format.opencode-cli.subtitle':
-    '`opencode mcp add` command form (the non-interactive mode that takes a name has no scope option and always writes the global `~/.config/opencode/opencode.json`)',
+    '`opencode mcp add` command form (the non-interactive mode that takes a name has no scope option and always writes the global `$XDG_CONFIG_HOME/opencode/opencode.json`, `~/.config/opencode/opencode.json` by default)',
   'format.claude-desktop.title': 'Claude Desktop',
   'format.claude-desktop.subtitle':
     '`%APPDATA%\\Claude\\claude_desktop_config.json` (remote servers bridged via uvx mcp-proxy)',
@@ -387,7 +397,7 @@ const en: Record<MessageKey, string> = {
     'TOML excerpt for `%USERPROFILE%\\.grok\\config.toml` (user) or `.grok\\config.toml` (project); HTTP / SSE are native, so no bridge is needed',
   'format.opencode-json.title': 'opencode.json',
   'format.opencode-json.subtitle':
-    '`mcp` excerpt for `~/.config/opencode/opencode.json` (user) or `opencode.json` at the project root (project); it is JSONC so `//` comments are allowed, and HTTP / SSE are native through `type: "remote"`',
+    '`mcp` excerpt for `$XDG_CONFIG_HOME/opencode/opencode.json` (user; `~/.config/opencode/opencode.json` by default) or `opencode.json` at the project root (project); it is JSONC so `//` comments are allowed, and HTTP / SSE are native through `type: "remote"`',
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (remote uses `serverUrl` key; SSE bridged via npx mcp-remote)',
@@ -441,14 +451,24 @@ const en: Record<MessageKey, string> = {
   'converters.opencode.localScope.line1':
     '# Note: opencode only has the global and project layers, so local is emitted as `opencode.json` at the project root.',
   'converters.opencode.localScope.line2':
-    '#       Add `opencode.json` to .gitignore if you do not want to commit it, or switch the scope to user.',
+    '#       .gitignore only hides `opencode.json` while it is still untracked; once the file is committed, later edits keep being tracked. Keep secrets out of the values by referencing environment variables with `{env:VAR}`, or switch the scope to user so they live in the global config outside the repository.',
   'converters.opencodeCli.globalOnly.line1':
-    '# Note: the scope is {scope}, but the non-interactive `opencode mcp add` that takes a name has no scope option.',
+    '# Note: scope="{scope}" cannot be expressed with `opencode mcp add` — the non-interactive form that takes a name has no scope option and always writes the global config.',
   'converters.opencodeCli.globalOnly.line2':
-    '#       It always writes the global config, so to land in the project `{path}` use the "opencode.json" tab, or',
+    '#       Running it would register the server globally, for every project, so the command below is commented out.',
   'converters.opencodeCli.globalOnly.line3':
-    '#       run `opencode mcp add` with no arguments and pick "Current project" for Location in the interactive flow.',
-  'converters.opencodeJson.target': '# Write to: {path}',
+    '#       Paste the "opencode.json" tab into {path} at the project root instead.',
+  'converters.opencodeCli.globalOnly.line4':
+    '#       The interactive flow can pick a scope: run `opencode mcp add` with no arguments and choose "Current project" for Location.',
+  'converters.opencodeCli.keyMalformed.line1':
+    '# Note: these keys cannot be expressed with `opencode mcp add {flag}`: {keys}',
+  'converters.opencodeCli.keyMalformed.line2':
+    '#       `{flag}` splits on the first `=`, so a key containing `=` is corrupted (`A=B` set to `c` arrives as `A` with the value `B=c`) and an empty key is rejected by the CLI.',
+  'converters.opencodeCli.keyMalformed.line3':
+    '#       Rename the key, or use the "opencode.json" tab, which can carry the key verbatim.',
+  'converters.opencodeJson.target.global': '# Write to: {path} (default: {defaultPath})',
+  'converters.opencodeJson.target.project':
+    '# Write to: {path} at the project root (scope: {scope})',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: `--bearer-token-env-var` is the only header `codex mcp add` can set; arbitrary HTTP headers have no CLI flag.',

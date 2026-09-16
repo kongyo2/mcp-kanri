@@ -11,6 +11,7 @@ import {
   isClaudeReservedName,
   mcpProxyBridge,
   opencodeConfigPath,
+  opencodeEntryKeyIssues,
   opencodeEnvRefKeys,
   opencodeUnexpandedKeys,
   partitionCodexStdioEnv,
@@ -930,7 +931,7 @@ describe('toOpencodeCli', () => {
   });
 
   it('passes env as --env KEY=VALUE before the separator', () => {
-    expect(toOpencodeCli(stdioWithEnv).split('\n')[0]).toBe(
+    expect(toOpencodeCli({ ...stdioWithEnv, scope: 'user' })).toBe(
       'opencode mcp add airtable --env AIRTABLE_API_KEY=YOUR_KEY -- npx -y airtable-mcp-server',
     );
   });
@@ -947,12 +948,28 @@ describe('toOpencodeCli', () => {
     expect(text).toContain('no dedicated SSE type');
   });
 
-  it('notes that the non-interactive add ignores project and local scopes', () => {
-    expect(toOpencodeCli({ ...stdioBase, scope: 'project' }, 'en')).toContain(
-      'has no scope option',
-    );
-    expect(toOpencodeCli({ ...stdioBase, scope: 'local' }, 'en')).toContain('Current project');
-    expect(toOpencodeCli(stdioBase, 'en')).not.toContain('has no scope option');
+  it('comments the command out when the scope would be silently ignored', () => {
+    const text = toOpencodeCli({ ...stdioBase, scope: 'project' }, 'en');
+    expect(text).toContain('has no scope option');
+    expect(text).toContain('# opencode mcp add chrome-devtools --');
+    expect(text.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+  });
+
+  it('leaves the command runnable for the user scope', () => {
+    const text = toOpencodeCli(stdioBase, 'en');
+    expect(text.startsWith('opencode mcp add')).toBe(true);
+    expect(text).not.toContain('has no scope option');
+  });
+
+  it('warns about keys that cannot survive KEY=VALUE parsing', () => {
+    const env = toOpencodeCli({ ...stdioBase, env: { 'A=B': 'c', '  ': 'd' } }, 'en');
+    expect(env).toContain('`opencode mcp add --env`');
+    expect(env).toContain('"A=B"');
+    expect(env).toContain('"  "');
+
+    const header = toOpencodeCli({ ...httpServer, headers: { 'X=Y': 'z' } }, 'en');
+    expect(header).toContain('`opencode mcp add --header`');
+    expect(toOpencodeCli(stdioWithEnv, 'en')).not.toContain('these keys cannot be expressed');
   });
 
   it('rewrites ${VAR} into the opencode substitution form', () => {
@@ -1015,10 +1032,24 @@ describe('toOpencodeJson', () => {
     expect(text).toContain('still contain');
   });
 
-  it('names the target config file per scope', () => {
-    expect(toOpencodeJson(stdioBase, 'en')).toContain('~/.config/opencode/opencode.json');
+  it('still warns when only part of a value could be rewritten', () => {
+    const text = toOpencodeJson(
+      { ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}-${1BAD}' } },
+      'en',
+    );
+    expect(opencodeEntry(text, 'notion')['headers']).toEqual({
+      Authorization: 'Bearer {env:TOKEN}-${1BAD}',
+    });
+    expect(text).toContain('opencode substitution');
+    expect(text).toContain('still contain');
+  });
+
+  it('names the target config file per scope, honouring XDG_CONFIG_HOME', () => {
+    expect(toOpencodeJson(stdioBase, 'en')).toContain(
+      '// Write to: $XDG_CONFIG_HOME/opencode/opencode.json (default: ~/.config/opencode/opencode.json)',
+    );
     expect(toOpencodeJson({ ...stdioBase, scope: 'project' }, 'en')).toContain(
-      '// Write to: opencode.json',
+      '// Write to: opencode.json at the project root (scope: project)',
     );
   });
 
@@ -1036,7 +1067,7 @@ describe('opencode helpers', () => {
   });
 
   it('resolves the config path per scope', () => {
-    expect(opencodeConfigPath('user')).toBe('~/.config/opencode/opencode.json');
+    expect(opencodeConfigPath('user')).toBe('$XDG_CONFIG_HOME/opencode/opencode.json');
     expect(opencodeConfigPath('project')).toBe('opencode.json');
     expect(opencodeConfigPath('local')).toBe('opencode.json');
   });
@@ -1052,6 +1083,21 @@ describe('opencode helpers', () => {
     const record = { A: '${OK}', B: '${1BAD}', C: 'plain' };
     expect(opencodeEnvRefKeys(record)).toEqual(['A']);
     expect(opencodeUnexpandedKeys(record)).toEqual(['B']);
+  });
+
+  it('reports a partly rewritten value in both lists', () => {
+    const record = { A: 'Bearer ${OK}-${1BAD}' };
+    expect(opencodeEnvRefKeys(record)).toEqual(['A']);
+    expect(opencodeUnexpandedKeys(record)).toEqual(['A']);
+  });
+
+  it('flags keys the CLI KEY=VALUE form cannot carry', () => {
+    expect(opencodeEntryKeyIssues({ OK: 'v', 'A=B': 'c', '': 'd', '  ': 'e' })).toEqual([
+      'A=B',
+      '',
+      '  ',
+    ]);
+    expect(opencodeEntryKeyIssues({ OK: 'v' })).toEqual([]);
   });
 });
 

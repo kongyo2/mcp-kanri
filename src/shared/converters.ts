@@ -909,9 +909,8 @@ export function toGrokToml(server: McpServer, locale: Locale = 'en'): string {
 
 export type OpencodeScope = 'global' | 'project';
 
-export const OPENCODE_GLOBAL_CONFIG_PATH = '~/.config/opencode/opencode.json';
-export const OPENCODE_GLOBAL_CONFIG_WINDOWS_PATH =
-  '%USERPROFILE%\\.config\\opencode\\opencode.json';
+export const OPENCODE_GLOBAL_CONFIG_PATH = '$XDG_CONFIG_HOME/opencode/opencode.json';
+export const OPENCODE_GLOBAL_CONFIG_DEFAULT_PATH = '~/.config/opencode/opencode.json';
 export const OPENCODE_PROJECT_CONFIG_PATH = 'opencode.json';
 export const OPENCODE_CONFIG_SCHEMA_URL = 'https://opencode.ai/config.json';
 
@@ -949,8 +948,12 @@ export function opencodeEnvRefKeys(record: Record<string, string>): string[] {
 
 export function opencodeUnexpandedKeys(record: Record<string, string>): string[] {
   return Object.entries(record)
-    .filter(([, value]) => toOpencodeVariables(value) === value && ENV_REF_ANYWHERE.test(value))
+    .filter(([, value]) => ENV_REF_ANYWHERE.test(toOpencodeVariables(value)))
     .map(([key]) => key);
+}
+
+export function opencodeEntryKeyIssues(record: Record<string, string>): string[] {
+  return Object.keys(record).filter((key) => key.includes('=') || key.trim().length === 0);
 }
 
 function opencodeVariableNotes(server: McpServer, locale: Locale): string[] {
@@ -1009,21 +1012,42 @@ function opencodeAddCommand(server: McpServer): string {
   return parts.join(' ');
 }
 
-export function toOpencodeCli(server: McpServer, locale: Locale = 'en'): string {
-  const notes: string[] = [];
+function opencodeCliKeyNotes(server: McpServer, locale: Locale): string[] {
+  const record = opencodeVariableRecord(server);
+  const malformed = opencodeEntryKeyIssues(record);
+  if (malformed.length === 0) return [];
+  const flag = server.transport === 'stdio' ? '--env' : '--header';
+  return [
+    translate(locale, 'converters.opencodeCli.keyMalformed.line1', {
+      flag,
+      keys: joinForNote(malformed),
+    }),
+    translate(locale, 'converters.opencodeCli.keyMalformed.line2', { flag }),
+    translate(locale, 'converters.opencodeCli.keyMalformed.line3'),
+  ];
+}
 
-  if (toOpencodeScope(server.scope) === 'project') {
-    notes.push(
-      translate(locale, 'converters.opencodeCli.globalOnly.line1', { scope: server.scope }),
-      translate(locale, 'converters.opencodeCli.globalOnly.line2', {
-        path: OPENCODE_PROJECT_CONFIG_PATH,
-      }),
-      translate(locale, 'converters.opencodeCli.globalOnly.line3'),
-    );
+export function toOpencodeCli(server: McpServer, locale: Locale = 'en'): string {
+  const command = opencodeAddCommand(server);
+  const trailingNotes = [
+    ...opencodeCliKeyNotes(server, locale),
+    ...opencodeSharedNotes(server, locale),
+  ].flatMap(asCommentLines);
+
+  if (toOpencodeScope(server.scope) === 'global') {
+    return [command, ...trailingNotes].join('\n');
   }
 
-  notes.push(...opencodeSharedNotes(server, locale));
-  return [opencodeAddCommand(server), ...notes.flatMap(asCommentLines)].join('\n');
+  const scopeNotes = [
+    translate(locale, 'converters.opencodeCli.globalOnly.line1', { scope: server.scope }),
+    translate(locale, 'converters.opencodeCli.globalOnly.line2'),
+    translate(locale, 'converters.opencodeCli.globalOnly.line3', {
+      path: OPENCODE_PROJECT_CONFIG_PATH,
+    }),
+    translate(locale, 'converters.opencodeCli.globalOnly.line4'),
+  ].flatMap(asCommentLines);
+
+  return [...scopeNotes, ...asCommentLines(command), ...trailingNotes].join('\n');
 }
 
 interface OpencodeLocal {
@@ -1057,10 +1081,21 @@ function serverToOpencodeValue(server: McpServer): OpencodeLocal | OpencodeRemot
   );
 }
 
+function opencodeJsonTargetNote(scope: Scope, locale: Locale): string {
+  if (toOpencodeScope(scope) === 'global') {
+    return translate(locale, 'converters.opencodeJson.target.global', {
+      path: OPENCODE_GLOBAL_CONFIG_PATH,
+      defaultPath: OPENCODE_GLOBAL_CONFIG_DEFAULT_PATH,
+    });
+  }
+  return translate(locale, 'converters.opencodeJson.target.project', {
+    path: OPENCODE_PROJECT_CONFIG_PATH,
+    scope,
+  });
+}
+
 export function toOpencodeJson(server: McpServer, locale: Locale = 'en'): string {
-  const notes: string[] = [
-    translate(locale, 'converters.opencodeJson.target', { path: opencodeConfigPath(server.scope) }),
-  ];
+  const notes: string[] = [opencodeJsonTargetNote(server.scope, locale)];
 
   if (server.scope === 'local') {
     notes.push(

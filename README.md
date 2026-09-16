@@ -68,8 +68,9 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `.codex/config.toml` (project・local) 用の TOML 抜粋
   - `Grok config.toml` — `%USERPROFILE%\.grok\config.toml` (user) /
     `.grok\config.toml` (project) 用の `[mcp_servers.<name>]` 抜粋
-  - `opencode.json` — `~/.config/opencode/opencode.json` (user) /
-    プロジェクト直下の `opencode.json` (project・local) 用の `mcp` 抜粋
+  - `opencode.json` — `$XDG_CONFIG_HOME/opencode/opencode.json`
+    (user・既定 `~/.config/opencode/opencode.json`) / プロジェクト直下の
+    `opencode.json` (project・local) 用の `mcp` 抜粋
   - `Antigravity mcp_config.json` — Google Antigravity Editor 用
     `~/.gemini/antigravity/mcp_config.json` (リモートは `url` ではなく
     `serverUrl` キー)
@@ -195,11 +196,16 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `${1BAD}` のように変換できない `${...}` が残る場合も別途注記します。
   - 名前を渡す非対話モードの `opencode mcp add <name>` には scope 相当の
     オプションがなく、常にグローバル設定へ書き込みます。`project` / `local`
-    を選んでいる場合は「opencode.json」タブの出力を使うか、引数なしの
-    `opencode mcp add` を対話モードで実行するよう注記します。
+    を選んでいる場合は、そのまま貼るとグローバル登録になってしまうため
+    Codex タブと同じくコマンド自体をコメントアウトし、「opencode.json」タブ
+    の出力を使うか引数なしの `opencode mcp add` を対話モードで実行するよう
+    注記します。
   - `opencode mcp add` の `--header` は他の CLI と違って `KEY=VALUE` 形式
     (`Key: Value` ではない) です。`--env` は local 専用、`--header` は
     remote 専用で、混ぜると CLI 側がエラーになるため出力を出し分けます。
+    どちらも最初の `=` までをキーとして解釈するので、`=` を含むキーや空の
+    キーは CLI では表現できません。該当する場合は注記し、キーをそのまま
+    書ける「opencode.json」タブを案内します。
   - opencode の設定は JSONC (`opencode.json` / `opencode.jsonc` とも
     jsonc-parser で読み込み) なので、「opencode.json」タブの注記は `//`
     コメントで出力し、そのまま貼り付けられるようにしています。
@@ -277,8 +283,10 @@ another format on the fly.
     `.codex/config.toml` at the project root (project / local)
   - `Grok config.toml` — `[mcp_servers.<name>]` excerpt for
     `%USERPROFILE%\.grok\config.toml` (user) or `.grok\config.toml` (project)
-  - `opencode.json` — `mcp` excerpt for `~/.config/opencode/opencode.json`
-    (user) or `opencode.json` at the project root (project / local)
+  - `opencode.json` — `mcp` excerpt for
+    `$XDG_CONFIG_HOME/opencode/opencode.json` (user;
+    `~/.config/opencode/opencode.json` by default) or `opencode.json` at the
+    project root (project / local)
   - `Antigravity mcp_config.json` — Google Antigravity Editor's
     `~/.gemini/antigravity/mcp_config.json` (remote uses the `serverUrl`
     key, not `url`)
@@ -410,13 +418,17 @@ another format on the fly.
     headers is rewritten to `{env:VAR}` and the rewritten keys are noted. Any
     `${...}` that cannot be rewritten (e.g. `${1BAD}`) gets its own note.
   - The non-interactive `opencode mcp add <name>` has no scope option and
-    always writes the global config. When the scope is `project` or `local`
-    the output says to use the "opencode.json" tab instead, or to run
-    `opencode mcp add` with no arguments and pick "Current project".
+    always writes the global config. When the scope is `project` or `local`,
+    pasting it as-is would register the server globally, so the command
+    itself is commented out — as the Codex tab already does — and the output
+    says to use the "opencode.json" tab instead, or to run `opencode mcp add`
+    with no arguments and pick "Current project".
   - Unlike the other CLIs, `opencode mcp add --header` takes `KEY=VALUE`
     rather than `Key: Value`. `--env` is local-only and `--header` is
     remote-only — mixing them is a CLI error — so the two forms are emitted
-    separately.
+    separately. Both split on the first `=`, so a key containing `=` or an
+    empty key cannot be expressed on the CLI; those are flagged with a note
+    pointing at the "opencode.json" tab, which carries keys verbatim.
   - opencode config is JSONC (both `opencode.json` and `opencode.jsonc` are
     read through jsonc-parser), so the "opencode.json" tab emits its notes as
     `//` comments and stays pasteable as-is.

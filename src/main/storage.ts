@@ -13,16 +13,6 @@ import {
 import { getMainLocale } from './locale.js';
 import { translate } from '../shared/i18n.js';
 
-/**
- * `userData` ディレクトリ配下に JSON で MCP 登録一覧を永続化する。
- *
- * - mcp-router の `mcp-config-importer` が `mcpServers` を JSON で扱うのに倣い、
- *   このアプリの内部ストアも `mcpServers` ライクな配列で保持する。
- * - 起動毎にスキーマ検証 (Zod) を行い、ファイル未作成時のみ空ストアを返す。
- *   読み込み/JSON パース/スキーマ検証で失敗した場合はユーザデータ消失を避けるため
- *   呼び出し側に例外を伝播させる (空ストアで上書きしない)。
- */
-
 const FILE_NAME = 'mcp-kanri-store.json';
 
 let cachedPath: string | null = null;
@@ -38,19 +28,6 @@ function tr(key: string, params?: Record<string, string | number>): string {
   return translate(getMainLocale(), key, params);
 }
 
-/**
- * ストアを読み込む。
- *
- * - ファイル未作成 (ENOENT) の場合のみ空ストア (`{version: 1, servers: []}`) を返す。
- * - 読込・パース・スキーマ検証エラーは **呼び出し側に伝播** する。
- *   かつてここで `console.warn` し空ストアを返していたが、その挙動だと
- *   一時的な読込失敗 (権限エラー / 部分書込みファイル / 文字化け等) の直後に
- *   `createServer` などが空配列を書き戻し、登録済みサーバを丸ごと失う
- *   データロスバグになっていた (Codex Review #3152647727)。
- *
- * 破損ファイル復旧のため、スキーマ不一致時は元ファイルを `<name>.broken-<ts>` に
- * 退避してから例外を投げる (UI からはエラーモーダルで提示)。
- */
 async function readStore(): Promise<StoreFile> {
   const p = storePath();
   let buf: string;
@@ -82,11 +59,6 @@ async function readStore(): Promise<StoreFile> {
   );
 }
 
-/**
- * Zod のエラーメッセージは schema.ts で `validation.namePattern` 等の i18n キー
- * として埋め込まれているため、ユーザに見せる前に必ずロケール解決する。
- * パス情報も合わせて読み取れるよう `path: translatedMessage` 形式で結合する。
- */
 function formatZodIssues(error: ZodError): string {
   return error.issues
     .map((issue) => {
@@ -131,15 +103,10 @@ async function writeFile(store: StoreFile): Promise<void> {
   await fs.rename(tmp, p);
 }
 
-/** 現行スキーマバージョンで servers 配列を包んで永続化する。 */
 async function saveServers(servers: McpServer[]): Promise<void> {
   await writeFile({ version: 1, servers });
 }
 
-/**
- * `name` が既存サーバと衝突する場合は例外を投げる。
- * `exceptId` を渡すとその id のサーバは比較対象から外す (更新時に自分自身との衝突を無視する)。
- */
 function assertNameAvailable(store: StoreFile, name: string, exceptId?: string): void {
   if (store.servers.some((s) => s.id !== exceptId && s.name === name)) {
     throw new Error(tr('storage.error.duplicateName', { name }));

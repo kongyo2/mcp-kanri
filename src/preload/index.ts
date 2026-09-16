@@ -19,6 +19,5 @@ if (process.contextIsolated) {
     console.error('[preload] failed to expose api', error);
   }
 } else {
-  // contextIsolation: false fallback (本アプリでは使用しない想定)
   (window as unknown as { kanri: KanriApi }).kanri = api;
 }

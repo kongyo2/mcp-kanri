@@ -11,10 +11,10 @@
 
 mcp-kanri is a Windows 11 desktop app for managing MCP (Model Context Protocol)
 server configurations. From a single MCP registration, it generates and lets
-you copy CLI commands for Claude Code / Codex / Gemini / Qwen / Grok Build, the
-`mcpServers` JSON used by Claude Desktop / Cursor / VS Code / Google
-Antigravity / Cline, and the `config.toml` snippets used by Codex and Grok
-Build — all with one click.
+you copy CLI commands for Claude Code / Codex / Gemini / Qwen / Grok Build /
+opencode, the `mcpServers` JSON used by Claude Desktop / Cursor / VS Code /
+Google Antigravity / Cline, the `config.toml` snippets used by Codex and Grok
+Build, and the `opencode.json` snippet used by opencode — all with one click.
 
 The UI is fully bilingual (日本語 / English) and the language can be switched
 at any time from the sidebar footer. The initial language is detected from the
@@ -53,13 +53,14 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
 - **MCP サーバ登録の一元管理**: stdio / Streamable HTTP / SSE の 3 トランスポート
   に対応。`command` + `args` + `env`、または `url` + `headers` をフォームで編集
   できます。
-- **12 種類の出力フォーマットを自動生成**: 1 つの登録から下記の貼り付け先を
+- **14 種類の出力フォーマットを自動生成**: 1 つの登録から下記の貼り付け先を
   すべて出力します。
   - `Claude Code (CLI)` — `claude mcp add ...` コマンド
   - `Codex CLI` — `codex mcp add ...` コマンド
   - `Gemini CLI` — `gemini mcp add ...` コマンド
   - `Qwen Code` — `qwen mcp add ...` コマンド
   - `Grok Build (CLI)` — `grok mcp add ...` コマンド
+  - `opencode CLI` — `opencode mcp add ...` コマンド
   - `Claude Desktop` — `%APPDATA%\Claude\claude_desktop_config.json`
   - `mcpServers JSON` — Cursor / Windsurf などの共通形式
   - `VS Code mcp.json` — トップレベルキーが `servers` の VS Code 形式
@@ -67,6 +68,8 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `.codex/config.toml` (project・local) 用の TOML 抜粋
   - `Grok config.toml` — `%USERPROFILE%\.grok\config.toml` (user) /
     `.grok\config.toml` (project) 用の `[mcp_servers.<name>]` 抜粋
+  - `opencode.json` — `~/.config/opencode/opencode.json` (user) /
+    プロジェクト直下の `opencode.json` (project・local) 用の `mcp` 抜粋
   - `Antigravity mcp_config.json` — Google Antigravity Editor 用
     `~/.gemini/antigravity/mcp_config.json` (リモートは `url` ではなく
     `serverUrl` キー)
@@ -179,10 +182,44 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     既定 30 秒の `startup_timeout_sec` に収まらないことがあります。その場合は
     貼り付けた `[mcp_servers.<name>]` に `startup_timeout_sec` を足し、
     `grok mcp doctor <name>` で接続を確認してください。
+  - opencode はトランスポートを `local` (stdio) と `remote` の 2 種類だけで
+    表現します。`remote` は Streamable HTTP → SSE の順に接続を試すため、
+    SSE 専用エンドポイントでも `uvx mcp-proxy` / `npx mcp-remote` による
+    ブリッジは不要です。該当する登録には注記を添えます。
+  - opencode の `local` は `command` と `args` を 1 本の配列にまとめ
+    (`"command": ["npx", "-y", ...]`)、環境変数のキーも `env` ではなく
+    `environment` なので、自動で変換します。
+  - opencode は設定ファイル読み込み時に `{env:VAR}` と `{file:path}` を
+    展開します (`${VAR}` 形式は展開しません)。そのため env / headers に
+    書いた `${VAR}` は `{env:VAR}` へ自動変換し、変換したキーを注記します。
+    `${1BAD}` のように変換できない `${...}` が残る場合も別途注記します。
+  - 名前を渡す非対話モードの `opencode mcp add <name>` には scope 相当の
+    オプションがなく、常にグローバル設定へ書き込みます。`project` / `local`
+    を選んでいる場合は「opencode.json」タブの出力を使うか、引数なしの
+    `opencode mcp add` を対話モードで実行するよう注記します。
+  - `opencode mcp add` の `--header` は他の CLI と違って `KEY=VALUE` 形式
+    (`Key: Value` ではない) です。`--env` は local 専用、`--header` は
+    remote 専用で、混ぜると CLI 側がエラーになるため出力を出し分けます。
+  - opencode の設定は JSONC (`opencode.json` / `opencode.jsonc` とも
+    jsonc-parser で読み込み) なので、「opencode.json」タブの注記は `//`
+    コメントで出力し、そのまま貼り付けられるようにしています。
+  - opencode のグローバル設定は XDG 準拠 (`xdg-basedir`) で、Windows でも
+    `%USERPROFILE%\.config\opencode\opencode.json` です
+    (`%APPDATA%` ではありません)。`XDG_CONFIG_HOME` を設定している場合は
+    そちらが優先されます。
+  - opencode はツールを `<サーバ名>_<ツール名>` で登録するため、
+    `"tools": { "<サーバ名>_*": false }` のように glob で有効/無効を
+    切り替えられます。サーバ名に使える文字は `[A-Za-z0-9_-]` で、
+    mcp-kanri の名前バリデーションと同じ範囲なので追加の注記は不要です。
+  - リモートサーバの OAuth は opencode が自動検出し、必要なら
+    `opencode mcp auth <name>` でブラウザ認証まで行います。トークンは
+    `~/.local/share/opencode/mcp-auth.json` に保存されるので、
+    `Authorization` ヘッダを手書きする必要はありません。
 - **スコープ対応**: `local` / `project` / `user` を切り替えて出力。各 CLI の
   仕様に合わせて自動で正規化します (Gemini / Qwen / Grok Build は `local` を
   `project` に丸め、Codex は `project` / `local` を `.codex/config.toml` の
-  プロジェクト層に割り当てるなど)。
+  プロジェクト層に割り当て、opencode は `user` をグローバル設定・
+  `project` / `local` をプロジェクト直下の `opencode.json` に割り当てるなど)。
 - **安全なシェルクオート**: 値に空白や特殊文字を含む場合のみ `'...'` で
   くるみ、POSIX シェルにそのまま貼って動く形式で出力します。
 - **ワンクリックコピー**: 生成結果はコピー ボタン 1 つで貼り付けられます。
@@ -198,10 +235,10 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
 
 mcp-kanri is a Windows 11 desktop app for managing MCP (Model Context Protocol)
 configurations. From a single MCP server registration, it generates and copies
-the CLI commands for Claude Code / Codex / Gemini / Qwen / Grok Build, the
-`mcpServers` JSON for Claude Desktop / Cursor / VS Code / Google Antigravity /
-Cline, and the `config.toml` snippets for Codex and Grok Build, all with a
-single click.
+the CLI commands for Claude Code / Codex / Gemini / Qwen / Grok Build /
+opencode, the `mcpServers` JSON for Claude Desktop / Cursor / VS Code / Google
+Antigravity / Cline, the `config.toml` snippets for Codex and Grok Build, and
+the `opencode.json` snippet for opencode, all with a single click.
 
 ### Screenshots
 
@@ -225,13 +262,14 @@ another format on the fly.
 - **Centralised MCP server registry**: supports the three transports
   (`stdio` / Streamable HTTP / SSE). Edit `command` + `args` + `env`, or
   `url` + `headers`, from a form.
-- **Twelve output formats generated automatically**: a single registration is
+- **Fourteen output formats generated automatically**: a single registration is
   rendered into all of the following:
   - `Claude Code (CLI)` — `claude mcp add ...` command
   - `Codex CLI` — `codex mcp add ...` command
   - `Gemini CLI` — `gemini mcp add ...` command
   - `Qwen Code` — `qwen mcp add ...` command
   - `Grok Build (CLI)` — `grok mcp add ...` command
+  - `opencode CLI` — `opencode mcp add ...` command
   - `Claude Desktop` — `%APPDATA%\Claude\claude_desktop_config.json`
   - `mcpServers JSON` — common form for Cursor / Windsurf, etc.
   - `VS Code mcp.json` — VS Code form whose top-level key is `servers`
@@ -239,6 +277,8 @@ another format on the fly.
     `.codex/config.toml` at the project root (project / local)
   - `Grok config.toml` — `[mcp_servers.<name>]` excerpt for
     `%USERPROFILE%\.grok\config.toml` (user) or `.grok\config.toml` (project)
+  - `opencode.json` — `mcp` excerpt for `~/.config/opencode/opencode.json`
+    (user) or `opencode.json` at the project root (project / local)
   - `Antigravity mcp_config.json` — Google Antigravity Editor's
     `~/.gemini/antigravity/mcp_config.json` (remote uses the `serverUrl`
     key, not `url`)
@@ -358,10 +398,44 @@ another format on the fly.
     outlast the 30 second default `startup_timeout_sec`. Add that key to the
     pasted `[mcp_servers.<name>]` block when it happens, then verify with
     `grok mcp doctor <name>`.
+  - opencode models transports as just `local` (stdio) and `remote`. A
+    `remote` server is tried as Streamable HTTP first and then as SSE, so
+    SSE-only endpoints need no `uvx mcp-proxy` / `npx mcp-remote` bridge;
+    affected registrations carry a note explaining the fallback.
+  - opencode's `local` entries merge `command` and `args` into one array
+    (`"command": ["npx", "-y", ...]`) and name the environment map
+    `environment` rather than `env`, so both are converted for you.
+  - opencode expands `{env:VAR}` and `{file:path}` while loading the config
+    and does not understand the `${VAR}` form, so `${VAR}` written in env or
+    headers is rewritten to `{env:VAR}` and the rewritten keys are noted. Any
+    `${...}` that cannot be rewritten (e.g. `${1BAD}`) gets its own note.
+  - The non-interactive `opencode mcp add <name>` has no scope option and
+    always writes the global config. When the scope is `project` or `local`
+    the output says to use the "opencode.json" tab instead, or to run
+    `opencode mcp add` with no arguments and pick "Current project".
+  - Unlike the other CLIs, `opencode mcp add --header` takes `KEY=VALUE`
+    rather than `Key: Value`. `--env` is local-only and `--header` is
+    remote-only — mixing them is a CLI error — so the two forms are emitted
+    separately.
+  - opencode config is JSONC (both `opencode.json` and `opencode.jsonc` are
+    read through jsonc-parser), so the "opencode.json" tab emits its notes as
+    `//` comments and stays pasteable as-is.
+  - opencode's global config is XDG based (`xdg-basedir`), so on Windows it
+    lives at `%USERPROFILE%\.config\opencode\opencode.json`, not under
+    `%APPDATA%`. `XDG_CONFIG_HOME` takes precedence when it is set.
+  - opencode registers tools as `<server-name>_<tool-name>`, so they can be
+    toggled with globs such as `"tools": { "<server-name>_*": false }`.
+    Server names may use `[A-Za-z0-9_-]`, which matches mcp-kanri's own name
+    validation, so no extra note is needed.
+  - OAuth for remote servers is detected automatically, and
+    `opencode mcp auth <name>` runs the browser flow. Tokens are stored in
+    `~/.local/share/opencode/mcp-auth.json`, so there is no need to hand-write
+    an `Authorization` header.
 - **Scope aware**: emits `local` / `project` / `user`, normalised to each
   CLI's accepted values (e.g. Gemini / Qwen / Grok Build collapse `local` to
-  `project`, and Codex maps `project` / `local` onto the `.codex/config.toml`
-  project layer).
+  `project`, Codex maps `project` / `local` onto the `.codex/config.toml`
+  project layer, and opencode maps `user` to its global config and
+  `project` / `local` to `opencode.json` at the project root).
 - **Safe shell quoting**: values are single-quoted only when they contain
   whitespace or special characters, so the output can be pasted into any
   POSIX shell as-is.

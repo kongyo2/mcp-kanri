@@ -7,11 +7,13 @@ export type FormatId =
   | 'gemini-cli'
   | 'qwen-cli'
   | 'grok-cli'
+  | 'opencode-cli'
   | 'claude-desktop'
   | 'mcp-json'
   | 'vscode-json'
   | 'codex-toml'
   | 'grok-toml'
+  | 'opencode-json'
   | 'antigravity-json'
   | 'cline-json';
 
@@ -54,6 +56,12 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     language: 'bash',
   },
   {
+    id: 'opencode-cli',
+    titleKey: 'format.opencode-cli.title',
+    subtitleKey: 'format.opencode-cli.subtitle',
+    language: 'bash',
+  },
+  {
     id: 'claude-desktop',
     titleKey: 'format.claude-desktop.title',
     subtitleKey: 'format.claude-desktop.subtitle',
@@ -82,6 +90,12 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     titleKey: 'format.grok-toml.title',
     subtitleKey: 'format.grok-toml.subtitle',
     language: 'toml',
+  },
+  {
+    id: 'opencode-json',
+    titleKey: 'format.opencode-json.title',
+    subtitleKey: 'format.opencode-json.subtitle',
+    language: 'json',
   },
   {
     id: 'antigravity-json',
@@ -238,6 +252,12 @@ function claudeCliNotes(server: McpServer, locale: Locale): string[] {
 
 function asCommentLines(note: string): string[] {
   return note.split(LINE_BREAK).map((line) => (line.startsWith('#') ? line : `# ${line}`));
+}
+
+function asSlashCommentLines(note: string): string[] {
+  return note
+    .split(LINE_BREAK)
+    .map((line) => (line.startsWith('#') ? line.replace(/^#/, '//') : `// ${line}`));
 }
 
 export function toClaudeCli(server: McpServer, locale: Locale = 'en'): string {
@@ -887,6 +907,182 @@ export function toGrokToml(server: McpServer, locale: Locale = 'en'): string {
   return [...lines, ...notes].join('\n') + '\n';
 }
 
+export type OpencodeScope = 'global' | 'project';
+
+export const OPENCODE_GLOBAL_CONFIG_PATH = '~/.config/opencode/opencode.json';
+export const OPENCODE_GLOBAL_CONFIG_WINDOWS_PATH =
+  '%USERPROFILE%\\.config\\opencode\\opencode.json';
+export const OPENCODE_PROJECT_CONFIG_PATH = 'opencode.json';
+export const OPENCODE_CONFIG_SCHEMA_URL = 'https://opencode.ai/config.json';
+
+export function toOpencodeScope(scope: Scope): OpencodeScope {
+  return scope === 'user' ? 'global' : 'project';
+}
+
+export function opencodeConfigPath(scope: Scope): string {
+  return toOpencodeScope(scope) === 'global'
+    ? OPENCODE_GLOBAL_CONFIG_PATH
+    : OPENCODE_PROJECT_CONFIG_PATH;
+}
+
+const OPENCODE_ENV_REF = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+export function toOpencodeVariables(value: string): string {
+  return value.replace(OPENCODE_ENV_REF, (_match, name: string) => `{env:${name}}`);
+}
+
+function opencodeRecord(record: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key, toOpencodeVariables(value)]),
+  );
+}
+
+function opencodeVariableRecord(server: McpServer): Record<string, string> {
+  return server.transport === 'stdio' ? server.env : server.headers;
+}
+
+export function opencodeEnvRefKeys(record: Record<string, string>): string[] {
+  return Object.entries(record)
+    .filter(([, value]) => toOpencodeVariables(value) !== value)
+    .map(([key]) => key);
+}
+
+export function opencodeUnexpandedKeys(record: Record<string, string>): string[] {
+  return Object.entries(record)
+    .filter(([, value]) => toOpencodeVariables(value) === value && ENV_REF_ANYWHERE.test(value))
+    .map(([key]) => key);
+}
+
+function opencodeVariableNotes(server: McpServer, locale: Locale): string[] {
+  const record = opencodeVariableRecord(server);
+  const group = server.transport === 'stdio' ? 'environment' : 'headers';
+  const notes: string[] = [];
+
+  const converted = opencodeEnvRefKeys(record);
+  if (converted.length > 0) {
+    notes.push(
+      translate(locale, 'converters.opencode.envRef.line1', {
+        group,
+        keys: joinForNote(converted),
+      }),
+      translate(locale, 'converters.opencode.envRef.line2'),
+    );
+  }
+
+  const unexpanded = opencodeUnexpandedKeys(record);
+  if (unexpanded.length > 0) {
+    notes.push(
+      translate(locale, 'converters.opencode.unexpanded.line1', { keys: joinForNote(unexpanded) }),
+      translate(locale, 'converters.opencode.unexpanded.line2'),
+    );
+  }
+
+  return notes;
+}
+
+function opencodeSharedNotes(server: McpServer, locale: Locale): string[] {
+  const notes: string[] = [];
+
+  if (server.transport === 'sse') {
+    notes.push(
+      translate(locale, 'converters.opencode.sse.line1'),
+      translate(locale, 'converters.opencode.sse.line2'),
+    );
+  }
+
+  notes.push(...opencodeVariableNotes(server, locale));
+  return notes;
+}
+
+function opencodeAddCommand(server: McpServer): string {
+  const parts: string[] = ['opencode', 'mcp', 'add', quoteShell(server.name)];
+
+  if (server.transport === 'stdio') {
+    parts.push(...entryFlags(opencodeRecord(server.env), '--env', '='));
+    parts.push('--', quoteShell(server.command));
+    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    return parts.join(' ');
+  }
+
+  parts.push('--url', quoteShell(server.url));
+  parts.push(...entryFlags(opencodeRecord(server.headers), '--header', '='));
+  return parts.join(' ');
+}
+
+export function toOpencodeCli(server: McpServer, locale: Locale = 'en'): string {
+  const notes: string[] = [];
+
+  if (toOpencodeScope(server.scope) === 'project') {
+    notes.push(
+      translate(locale, 'converters.opencodeCli.globalOnly.line1', { scope: server.scope }),
+      translate(locale, 'converters.opencodeCli.globalOnly.line2', {
+        path: OPENCODE_PROJECT_CONFIG_PATH,
+      }),
+      translate(locale, 'converters.opencodeCli.globalOnly.line3'),
+    );
+  }
+
+  notes.push(...opencodeSharedNotes(server, locale));
+  return [opencodeAddCommand(server), ...notes.flatMap(asCommentLines)].join('\n');
+}
+
+interface OpencodeLocal {
+  type: 'local';
+  command: string[];
+  enabled: true;
+  environment?: Record<string, string>;
+}
+
+interface OpencodeRemote {
+  type: 'remote';
+  url: string;
+  enabled: true;
+  headers?: Record<string, string>;
+}
+
+function serverToOpencodeValue(server: McpServer): OpencodeLocal | OpencodeRemote {
+  if (server.transport === 'stdio') {
+    const entry: OpencodeLocal = {
+      type: 'local',
+      command: [server.command, ...server.args],
+      enabled: true,
+    };
+    const environment = opencodeRecord(server.env);
+    if (Object.keys(environment).length > 0) entry.environment = environment;
+    return entry;
+  }
+  return withHeaders<OpencodeRemote>(
+    { type: 'remote', url: server.url, enabled: true },
+    opencodeRecord(server.headers),
+  );
+}
+
+export function toOpencodeJson(server: McpServer, locale: Locale = 'en'): string {
+  const notes: string[] = [
+    translate(locale, 'converters.opencodeJson.target', { path: opencodeConfigPath(server.scope) }),
+  ];
+
+  if (server.scope === 'local') {
+    notes.push(
+      translate(locale, 'converters.opencode.localScope.line1'),
+      translate(locale, 'converters.opencode.localScope.line2'),
+    );
+  }
+
+  notes.push(...opencodeSharedNotes(server, locale));
+
+  const body = JSON.stringify(
+    {
+      $schema: OPENCODE_CONFIG_SCHEMA_URL,
+      mcp: { [server.name]: serverToOpencodeValue(server) },
+    },
+    null,
+    2,
+  );
+
+  return [...notes.flatMap(asSlashCommentLines), body].join('\n');
+}
+
 interface AntigravityHttp {
   serverUrl: string;
   headers?: Record<string, string>;
@@ -940,6 +1136,8 @@ export function formatServer(format: FormatId, server: McpServer, locale: Locale
       return toQwenCli(server);
     case 'grok-cli':
       return toGrokCli(server, locale);
+    case 'opencode-cli':
+      return toOpencodeCli(server, locale);
     case 'claude-desktop':
       return toClaudeDesktop(server);
     case 'mcp-json':
@@ -950,6 +1148,8 @@ export function formatServer(format: FormatId, server: McpServer, locale: Locale
       return toCodexToml(server, locale);
     case 'grok-toml':
       return toGrokToml(server, locale);
+    case 'opencode-json':
+      return toOpencodeJson(server, locale);
     case 'antigravity-json':
       return toAntigravityJson(server);
     case 'cline-json':

@@ -36,7 +36,7 @@ const ja = {
   'main.edit.heading': '"{name}" を編集',
   'main.empty.title': 'MCP を選択してください',
   'main.empty.body':
-    '一つの登録から、Claude / Codex / Grok CLI コマンドや `mcpServers` JSON / VS Code `servers` JSON / Codex・Grok の `config.toml` を切り替えてコピーできます。',
+    '一つの登録から、Claude / Codex / Grok / opencode CLI コマンドや `mcpServers` JSON / VS Code `servers` JSON / Codex・Grok の `config.toml` / opencode の `opencode.json` を切り替えてコピーできます。',
 
   'detail.scope': 'scope: {scope}',
   'detail.command': 'command:',
@@ -55,7 +55,7 @@ const ja = {
     '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`。`workspace` / `claude-in-chrome` / `computer-use` は Claude Code の予約名です。Grok は英字か `_` で始まり、末尾が `_` でなく `__` を含まない名前のみツールを登録します',
   'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (`codex mcp add` に scope 相当のオプションはなく常に `$CODEX_HOME/config.toml` へ書き込みますが、"Codex config.toml" タブは project / local ならプロジェクト直下の `.codex/config.toml` 向けに出力します。Grok は user / project のみで local は project に丸めます)',
+    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (`codex mcp add` に scope 相当のオプションはなく常に `$CODEX_HOME/config.toml` へ書き込みますが、"Codex config.toml" タブは project / local ならプロジェクト直下の `.codex/config.toml` 向けに出力します。Grok は user / project のみで local は project に丸めます。opencode も global / project の 2 階層のみで、非対話の `opencode mcp add` は常にグローバル設定へ書き込むため、project / local は "opencode.json" タブの出力を使ってください)',
   'form.scope.local': 'local (現プロジェクトのみ)',
   'form.scope.project': 'project (.mcp.json として共有)',
   'form.scope.user': 'user (全プロジェクト共通)',
@@ -106,6 +106,9 @@ const ja = {
   'format.grok-cli.title': 'Grok Build (CLI)',
   'format.grok-cli.subtitle':
     '`grok mcp add` コマンド形式 (user は `%USERPROFILE%\\.grok\\config.toml`、project は `.grok\\config.toml` に書き込み)',
+  'format.opencode-cli.title': 'opencode CLI',
+  'format.opencode-cli.subtitle':
+    '`opencode mcp add` コマンド形式 (名前を渡す非対話モードには scope 相当のオプションがなく、常にグローバル設定 `~/.config/opencode/opencode.json` へ書き込み)',
   'format.claude-desktop.title': 'Claude Desktop',
   'format.claude-desktop.subtitle':
     '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
@@ -119,6 +122,9 @@ const ja = {
   'format.grok-toml.title': 'Grok config.toml',
   'format.grok-toml.subtitle':
     '`%USERPROFILE%\\.grok\\config.toml` (user) / `.grok\\config.toml` (project) 用 TOML 抜粋 (HTTP / SSE はネイティブ対応でブリッジ不要)',
+  'format.opencode-json.title': 'opencode.json',
+  'format.opencode-json.subtitle':
+    '`~/.config/opencode/opencode.json` (user) / プロジェクト直下の `opencode.json` (project) 用 `mcp` 抜粋 (JSONC なので `//` コメント可、HTTP / SSE は `type: "remote"` でネイティブ対応)',
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (リモートは `serverUrl` キー / SSE は npx mcp-remote でブリッジ)',
@@ -157,6 +163,29 @@ const ja = {
     '# 注: Grok の scope は user / project の 2 つだけのため、local は project (`.grok/config.toml`) として出力しています。',
   'converters.grok.localScope.line2':
     '#     全プロジェクト共通にする場合は scope を user に変更してください。',
+
+  'converters.opencode.sse.line1':
+    '# 注: opencode に SSE 専用の type はなく、`type: "remote"` が Streamable HTTP → SSE の順で接続を試みます。',
+  'converters.opencode.sse.line2':
+    '#     SSE しか提供しないエンドポイントでも、そのまま `remote` として登録すれば自動で SSE にフォールバックします。',
+  'converters.opencode.envRef.line1':
+    '# 注: 次の `{group}` の値に含まれる `${VAR}` を、opencode の変数展開 `{env:VAR}` に変換しました: {keys}',
+  'converters.opencode.envRef.line2':
+    '#     opencode は設定ファイル読み込み時に展開します。変数が未設定だと読み込みエラーになるため、事前に環境変数を設定してください。',
+  'converters.opencode.unexpanded.line1': '# 注: 次の値には `${...}` が残っています: {keys}',
+  'converters.opencode.unexpanded.line2':
+    '#     opencode が展開するのは `{env:VAR}` と `{file:path}` だけで、`${...}` はそのまま文字列として扱われます。',
+  'converters.opencode.localScope.line1':
+    '# 注: opencode の設定は global / project の 2 階層だけのため、local はプロジェクト直下の `opencode.json` として出力しています。',
+  'converters.opencode.localScope.line2':
+    '#     コミットしたくない場合は `opencode.json` を .gitignore に追加するか、scope を user に変更してください。',
+  'converters.opencodeCli.globalOnly.line1':
+    '# 注: scope に {scope} を指定していますが、名前を渡す非対話モードの `opencode mcp add` には scope 相当のオプションがありません。',
+  'converters.opencodeCli.globalOnly.line2':
+    '#     常にグローバル設定へ書き込まれるため、プロジェクト側の `{path}` に入れたい場合は "opencode.json" タブの出力を使うか、',
+  'converters.opencodeCli.globalOnly.line3':
+    '#     引数なしの `opencode mcp add` を実行し、対話モードの Location で Current project を選んでください。',
+  'converters.opencodeJson.target': '# 書き込み先: {path}',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# 注: `codex mcp add` が扱えるヘッダは `--bearer-token-env-var` だけで、任意の HTTP ヘッダは CLI フラグで渡せません。',
@@ -270,7 +299,7 @@ const en: Record<MessageKey, string> = {
   'main.edit.heading': 'Edit "{name}"',
   'main.empty.title': 'Select an MCP server',
   'main.empty.body':
-    'From a single registration, switch and copy `claude` / `codex` / `gemini` / `qwen` / `grok` CLI commands, `mcpServers` JSON, VS Code `servers` JSON, or the Codex / Grok `config.toml`.',
+    'From a single registration, switch and copy `claude` / `codex` / `gemini` / `qwen` / `grok` / `opencode` CLI commands, `mcpServers` JSON, VS Code `servers` JSON, the Codex / Grok `config.toml`, or the opencode `opencode.json`.',
 
   'detail.scope': 'scope: {scope}',
   'detail.command': 'command:',
@@ -289,7 +318,7 @@ const en: Record<MessageKey, string> = {
     'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`. `workspace` / `claude-in-chrome` / `computer-use` are reserved by Claude Code. Grok only registers tools for names that start with a letter or `_`, do not end with `_`, and contain no `__`',
   'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (`codex mcp add` has no scope option and always writes `$CODEX_HOME/config.toml`, but the "Codex config.toml" tab targets `.codex/config.toml` at the project root for project / local. Grok has only user / project, so local is rounded to project)',
+    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (`codex mcp add` has no scope option and always writes `$CODEX_HOME/config.toml`, but the "Codex config.toml" tab targets `.codex/config.toml` at the project root for project / local. Grok has only user / project, so local is rounded to project. opencode likewise has only global / project, and the non-interactive `opencode mcp add` always writes the global config, so use the "opencode.json" tab for project / local)',
   'form.scope.local': 'local (current project only)',
   'form.scope.project': 'project (shared as .mcp.json)',
   'form.scope.user': 'user (shared across all projects)',
@@ -340,6 +369,9 @@ const en: Record<MessageKey, string> = {
   'format.grok-cli.title': 'Grok Build (CLI)',
   'format.grok-cli.subtitle':
     '`grok mcp add` command form (user writes `%USERPROFILE%\\.grok\\config.toml`, project writes `.grok\\config.toml`)',
+  'format.opencode-cli.title': 'opencode CLI',
+  'format.opencode-cli.subtitle':
+    '`opencode mcp add` command form (the non-interactive mode that takes a name has no scope option and always writes the global `~/.config/opencode/opencode.json`)',
   'format.claude-desktop.title': 'Claude Desktop',
   'format.claude-desktop.subtitle':
     '`%APPDATA%\\Claude\\claude_desktop_config.json` (remote servers bridged via uvx mcp-proxy)',
@@ -353,6 +385,9 @@ const en: Record<MessageKey, string> = {
   'format.grok-toml.title': 'Grok config.toml',
   'format.grok-toml.subtitle':
     'TOML excerpt for `%USERPROFILE%\\.grok\\config.toml` (user) or `.grok\\config.toml` (project); HTTP / SSE are native, so no bridge is needed',
+  'format.opencode-json.title': 'opencode.json',
+  'format.opencode-json.subtitle':
+    '`mcp` excerpt for `~/.config/opencode/opencode.json` (user) or `opencode.json` at the project root (project); it is JSONC so `//` comments are allowed, and HTTP / SSE are native through `type: "remote"`',
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (remote uses `serverUrl` key; SSE bridged via npx mcp-remote)',
@@ -390,6 +425,30 @@ const en: Record<MessageKey, string> = {
     '# Note: Grok only has the user and project scopes, so local is emitted as project (`.grok/config.toml`).',
   'converters.grok.localScope.line2':
     '#       Switch the scope to user to share the server across every project.',
+
+  'converters.opencode.sse.line1':
+    '# Note: opencode has no dedicated SSE type; `type: "remote"` tries Streamable HTTP first and then SSE.',
+  'converters.opencode.sse.line2':
+    '#       An SSE-only endpoint still works as `remote`, because opencode falls back to SSE automatically.',
+  'converters.opencode.envRef.line1':
+    '# Note: `${VAR}` in the following `{group}` values was rewritten to the opencode substitution `{env:VAR}`: {keys}',
+  'converters.opencode.envRef.line2':
+    '#       opencode expands it while loading the config and fails when the variable is unset, so export it first.',
+  'converters.opencode.unexpanded.line1':
+    '# Note: the following values still contain `${...}`: {keys}',
+  'converters.opencode.unexpanded.line2':
+    '#       opencode only expands `{env:VAR}` and `{file:path}`, so `${...}` is kept as a literal string.',
+  'converters.opencode.localScope.line1':
+    '# Note: opencode only has the global and project layers, so local is emitted as `opencode.json` at the project root.',
+  'converters.opencode.localScope.line2':
+    '#       Add `opencode.json` to .gitignore if you do not want to commit it, or switch the scope to user.',
+  'converters.opencodeCli.globalOnly.line1':
+    '# Note: the scope is {scope}, but the non-interactive `opencode mcp add` that takes a name has no scope option.',
+  'converters.opencodeCli.globalOnly.line2':
+    '#       It always writes the global config, so to land in the project `{path}` use the "opencode.json" tab, or',
+  'converters.opencodeCli.globalOnly.line3':
+    '#       run `opencode mcp add` with no arguments and pick "Current project" for Location in the interactive flow.',
+  'converters.opencodeJson.target': '# Write to: {path}',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: `--bearer-token-env-var` is the only header `codex mcp add` can set; arbitrary HTTP headers have no CLI flag.',

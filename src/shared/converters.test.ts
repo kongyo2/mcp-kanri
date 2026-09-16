@@ -10,6 +10,9 @@ import {
   grokTreatsAsSse,
   isClaudeReservedName,
   mcpProxyBridge,
+  opencodeConfigPath,
+  opencodeEnvRefKeys,
+  opencodeUnexpandedKeys,
   partitionCodexStdioEnv,
   quoteShell,
   toAntigravityJson,
@@ -24,6 +27,10 @@ import {
   toGrokScope,
   toGrokToml,
   toMcpJson,
+  toOpencodeCli,
+  toOpencodeJson,
+  toOpencodeScope,
+  toOpencodeVariables,
   toQwenCli,
   toVscodeJson,
 } from './converters.js';
@@ -904,6 +911,150 @@ describe('grok catalog helpers', () => {
   });
 });
 
+function opencodeJsonBody(text: string): Record<string, unknown> {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => !line.startsWith('//'));
+  return JSON.parse(lines.slice(start).join('\n')) as Record<string, unknown>;
+}
+
+function opencodeEntry(text: string, name: string): Record<string, unknown> {
+  const mcp = opencodeJsonBody(text)['mcp'] as Record<string, Record<string, unknown>>;
+  return mcp[name] as Record<string, unknown>;
+}
+
+describe('toOpencodeCli', () => {
+  it('passes the local command after the -- separator', () => {
+    expect(toOpencodeCli(stdioBase)).toBe(
+      'opencode mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('passes env as --env KEY=VALUE before the separator', () => {
+    expect(toOpencodeCli(stdioWithEnv).split('\n')[0]).toBe(
+      'opencode mcp add airtable --env AIRTABLE_API_KEY=YOUR_KEY -- npx -y airtable-mcp-server',
+    );
+  });
+
+  it('uses --url and --header KEY=VALUE for remote servers', () => {
+    expect(toOpencodeCli(httpServer)).toBe(
+      "opencode mcp add notion --url https://mcp.notion.com/mcp --header 'Authorization=Bearer xyz'",
+    );
+  });
+
+  it('sends sse through --url and notes the remote fallback', () => {
+    const text = toOpencodeCli(claudeSse, 'en');
+    expect(text.split('\n')[0]).toContain('--url https://api.example.com/sse');
+    expect(text).toContain('no dedicated SSE type');
+  });
+
+  it('notes that the non-interactive add ignores project and local scopes', () => {
+    expect(toOpencodeCli({ ...stdioBase, scope: 'project' }, 'en')).toContain(
+      'has no scope option',
+    );
+    expect(toOpencodeCli({ ...stdioBase, scope: 'local' }, 'en')).toContain('Current project');
+    expect(toOpencodeCli(stdioBase, 'en')).not.toContain('has no scope option');
+  });
+
+  it('rewrites ${VAR} into the opencode substitution form', () => {
+    const text = toOpencodeCli({ ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}' } });
+    expect(text).toContain("--header 'Authorization=Bearer {env:TOKEN}'");
+  });
+});
+
+describe('toOpencodeJson', () => {
+  it('emits a local entry whose command merges command and args', () => {
+    expect(opencodeEntry(toOpencodeJson(stdioBase), 'chrome-devtools')).toEqual({
+      type: 'local',
+      command: ['npx', '-y', 'chrome-devtools-mcp@latest'],
+      enabled: true,
+    });
+  });
+
+  it('uses the environment key rather than env', () => {
+    expect(opencodeEntry(toOpencodeJson(stdioWithEnv), 'airtable')['environment']).toEqual({
+      AIRTABLE_API_KEY: 'YOUR_KEY',
+    });
+  });
+
+  it('emits remote entries for http', () => {
+    expect(opencodeEntry(toOpencodeJson(httpServer), 'notion')).toEqual({
+      type: 'remote',
+      url: 'https://mcp.notion.com/mcp',
+      enabled: true,
+      headers: { Authorization: 'Bearer xyz' },
+    });
+  });
+
+  it('emits remote entries for sse without a bridge', () => {
+    const text = toOpencodeJson(claudeSse);
+    expect(opencodeEntry(text, 'notion')['type']).toBe('remote');
+    expect(text).not.toContain('mcp-remote');
+    expect(text).not.toContain('mcp-proxy');
+  });
+
+  it('carries the $schema url and stays parseable despite the // notes', () => {
+    const text = toOpencodeJson(stdioWithEnv, 'en');
+    expect(text.startsWith('//')).toBe(true);
+    expect(opencodeJsonBody(text)['$schema']).toBe('https://opencode.ai/config.json');
+  });
+
+  it('rewrites ${VAR} into {env:VAR} and says so', () => {
+    const text = toOpencodeJson(
+      { ...stdioWithEnv, env: { AIRTABLE_API_KEY: '${AIRTABLE_API_KEY}' } },
+      'en',
+    );
+    expect(opencodeEntry(text, 'airtable')['environment']).toEqual({
+      AIRTABLE_API_KEY: '{env:AIRTABLE_API_KEY}',
+    });
+    expect(text).toContain('opencode substitution');
+  });
+
+  it('warns about ${...} forms opencode never expands', () => {
+    const text = toOpencodeJson({ ...httpServer, headers: { 'X-Bad': '${1BAD}' } }, 'en');
+    expect(opencodeEntry(text, 'notion')['headers']).toEqual({ 'X-Bad': '${1BAD}' });
+    expect(text).toContain('still contain');
+  });
+
+  it('names the target config file per scope', () => {
+    expect(toOpencodeJson(stdioBase, 'en')).toContain('~/.config/opencode/opencode.json');
+    expect(toOpencodeJson({ ...stdioBase, scope: 'project' }, 'en')).toContain(
+      '// Write to: opencode.json',
+    );
+  });
+
+  it('notes that local is rounded to the project config', () => {
+    expect(toOpencodeJson(stdioWithEnv, 'en')).toContain('global and project layers');
+    expect(toOpencodeJson(stdioBase, 'en')).not.toContain('global and project layers');
+  });
+});
+
+describe('opencode helpers', () => {
+  it('maps the mcp-kanri scopes onto the two opencode layers', () => {
+    expect(toOpencodeScope('user')).toBe('global');
+    expect(toOpencodeScope('project')).toBe('project');
+    expect(toOpencodeScope('local')).toBe('project');
+  });
+
+  it('resolves the config path per scope', () => {
+    expect(opencodeConfigPath('user')).toBe('~/.config/opencode/opencode.json');
+    expect(opencodeConfigPath('project')).toBe('opencode.json');
+    expect(opencodeConfigPath('local')).toBe('opencode.json');
+  });
+
+  it('rewrites only well-formed ${VAR} references', () => {
+    expect(toOpencodeVariables('${TOKEN}')).toBe('{env:TOKEN}');
+    expect(toOpencodeVariables('Bearer ${A} ${B}')).toBe('Bearer {env:A} {env:B}');
+    expect(toOpencodeVariables('${1BAD}')).toBe('${1BAD}');
+    expect(toOpencodeVariables('plain')).toBe('plain');
+  });
+
+  it('separates rewritten keys from ones left unexpanded', () => {
+    const record = { A: '${OK}', B: '${1BAD}', C: 'plain' };
+    expect(opencodeEnvRefKeys(record)).toEqual(['A']);
+    expect(opencodeUnexpandedKeys(record)).toEqual(['B']);
+  });
+});
+
 describe('toClaudeDesktop', () => {
   it('emits standard mcpServers JSON for stdio (no type field)', () => {
     const parsed: unknown = JSON.parse(toClaudeDesktop(stdioBase));
@@ -1274,6 +1425,9 @@ describe('formatServer dispatch', () => {
     expect(formatServer('gemini-cli', stdioBase)).toContain('gemini mcp add');
     expect(formatServer('qwen-cli', stdioBase)).toContain('qwen mcp add');
     expect(formatServer('grok-cli', stdioBase)).toContain('grok mcp add');
+    expect(formatServer('opencode-cli', stdioBase)).toContain('opencode mcp add');
+    expect(formatServer('opencode-json', stdioBase)).toContain('"type": "local"');
+    expect(formatServer('opencode-json', claudeSse)).toContain('"type": "remote"');
     expect(formatServer('grok-toml', stdioBase)).toContain('[mcp_servers.');
     expect(formatServer('grok-toml', claudeSse)).toContain('type = "sse"');
     expect(formatServer('claude-desktop', stdioBase)).toContain('"mcpServers"');

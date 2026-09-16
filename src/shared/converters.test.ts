@@ -251,7 +251,12 @@ describe('toCodexCli', () => {
     const note = noteBody(toCodexCli(httpServer));
     expect(note).toContain('plain text');
     expect(note).toContain('bearer_token_env_var');
-    expect(note).toContain('codex mcp login');
+  });
+
+  it('claims only what `codex mcp list` shows, not that OAuth login is blocked', () => {
+    const note = noteBody(toCodexCli(httpServer));
+    expect(note).toContain('`codex mcp list` also reports this server as bearer-authenticated');
+    expect(note).not.toContain('never starts the OAuth flow');
   });
 
   it('keeps `Bearer ${ENV}` headers free of the plaintext-token warning', () => {
@@ -484,7 +489,7 @@ describe('toCodexToml', () => {
   it('covers the apostrophe path, which cannot be a TOML literal string', () => {
     const text = toCodexToml({ ...stdioBase, scope: 'project' });
     expect(text).toContain("contains `'` can it not be a literal string");
-    expect(text).toContain('double every `\\`');
+    expect(text).toContain('escape every `\\` as `\\\\` and every `"` as `\\"`');
   });
 
   it('adds the shared-checkout caveat for local scope', () => {

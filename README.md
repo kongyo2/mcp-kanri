@@ -134,8 +134,9 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     (サブテーブル内に置くと `invalid type: sequence, expected a string` で
     失敗するため)。
   - `Authorization` に値を直接書いた登録は、`config.toml` に平文で残ること、
-    Codex が Bearer 認証済みとみなして `codex mcp login` の OAuth フローを
-    行わないことを注記します。Bearer トークンには `Bearer ${VAR}` 形式を、
+    `codex mcp list` が Bearer 認証済みとして表示する (ログインが必要な
+    サーバとして出てこない) ことを注記します。Bearer トークンには
+    `Bearer ${VAR}` 形式を、
     Basic / Digest など Bearer 以外の方式には値全体を環境変数に移して
     `Authorization` = `${VAR}` (= `env_http_headers`) を案内し、認証方式を
     壊す書き換えを勧めないようにしています。
@@ -306,9 +307,10 @@ another format on the fly.
     inside the sub-table it fails with
     `invalid type: sequence, expected a string`.
   - A registration that writes the credential straight into `Authorization` is
-    flagged: it is stored in plain text in `config.toml`, and Codex treats the
-    server as already bearer-authenticated, so `codex mcp login` never starts
-    the OAuth flow. The remediation follows the scheme — `Bearer ${VAR}` for a
+    flagged: it is stored in plain text in `config.toml`, and `codex mcp list`
+    reports the server as bearer-authenticated, so it never shows up as one
+    that still needs a login. The remediation follows the scheme —
+    `Bearer ${VAR}` for a
     Bearer token, and for Basic / Digest and friends, moving the whole value
     into an environment variable referenced as `Authorization` = `${VAR}`
     (which becomes `env_http_headers`) rather than a rewrite that would break

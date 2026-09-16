@@ -212,7 +212,7 @@ const ja = {
   'converters.codex.plainAuth.other':
     '#     Bearer 以外の認証方式 (Basic / Digest など) は方式ごと壊れるので `Bearer` に書き換えず、値全体を環境変数に移して `Authorization` = `${VAR}` と書いてください (`env_http_headers` に変換されます)。',
   'converters.codex.plainAuth.noOauth':
-    '#     また Authorization が設定されたサーバは Bearer 認証済みとして扱われ、`codex mcp login` の OAuth フローは実行されません。',
+    '#     また `codex mcp list` はこのサーバを Bearer 認証済みとして表示します (ログインが必要なサーバとしては出ません)。',
 
   'converters.codex.envUnexpanded.line1':
     '# 注: 次の env は `env_vars` に振り替えられない `${...}` 参照を含んでいます (キー名と変数名が違う、既定値や前後の文字が付いている、など): {keys}',
@@ -230,7 +230,7 @@ const ja = {
   'converters.codexToml.projectTrust.line3':
     '#     キーはシングルクォート (TOML リテラル文字列) にしてください。ダブルクォートだと Windows パスの `\\Users` などがエスケープ扱いになり、config.toml 全体が読み込めなくなります。',
   'converters.codexToml.projectTrust.line4':
-    '#     パスに `\'` が含まれる場合だけはリテラル文字列にできないので、ダブルクォートにして `\\` を `\\\\` に置き換えてください (例: "C:\\\\Users\\\\O\'Brien\\\\repo")。',
+    '#     パスに `\'` が含まれる場合だけはリテラル文字列にできないので、ダブルクォートにして `\\` を `\\\\` に、`"` を `\\"` に置き換えてください (例: "C:\\\\Users\\\\O\'Brien\\\\repo")。',
   'converters.codexToml.envVars.line1':
     '# 注: 次の env は値が同名の `${VAR}` 参照だったため、`env_vars` に振り替えました: {keys}',
   'converters.codexToml.envVars.line2':
@@ -446,7 +446,7 @@ const en: Record<MessageKey, string> = {
   'converters.codex.plainAuth.other':
     '#       Do not rewrite a non-Bearer scheme (Basic, Digest, ...) as `Bearer` — that breaks the scheme. Move the whole value into an environment variable and write `Authorization` = `${VAR}`, which maps to `env_http_headers`.',
   'converters.codex.plainAuth.noOauth':
-    '#       A server with an Authorization header also counts as bearer-authenticated, so `codex mcp login` never starts the OAuth flow.',
+    '#       `codex mcp list` also reports this server as bearer-authenticated, so it is not listed as one that still needs a login.',
 
   'converters.codex.envUnexpanded.line1':
     '# Note: these env values hold a `${...}` reference that `env_vars` cannot express (the key and the variable differ, or the reference carries a default or surrounding text): {keys}',
@@ -465,7 +465,7 @@ const en: Record<MessageKey, string> = {
   'converters.codexToml.projectTrust.line3':
     '#       Keep the single quotes (a TOML literal string): in double quotes a Windows path like `\\Users` is read as an escape and the whole config.toml stops loading.',
   'converters.codexToml.projectTrust.line4':
-    '#       Only when the path itself contains `\'` can it not be a literal string — then use double quotes and double every `\\` (e.g. "C:\\\\Users\\\\O\'Brien\\\\repo").',
+    '#       Only when the path itself contains `\'` can it not be a literal string — then use double quotes and escape every `\\` as `\\\\` and every `"` as `\\"` (e.g. "C:\\\\Users\\\\O\'Brien\\\\repo").',
   'converters.codexToml.envVars.line1':
     '# Note: these env values were `${VAR}` references naming the same key, so they moved to `env_vars`: {keys}',
   'converters.codexToml.envVars.line2':

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { McpServer } from './schema.js';
 import {
   formatServer,
+  isClaudeReservedName,
   mcpProxyBridge,
   quoteShell,
   toAntigravityJson,
@@ -50,6 +51,13 @@ const httpServer: McpServer = {
   updatedAt: 0,
 };
 
+const claudeSse: McpServer = {
+  ...httpServer,
+  transport: 'sse',
+  url: 'https://api.example.com/sse',
+  headers: { 'X-A': '1', 'X-B': "it's" },
+};
+
 describe('quoteShell', () => {
   it('does not quote safe tokens', () => {
     expect(quoteShell('npx')).toBe('npx');
@@ -96,15 +104,62 @@ describe('toClaudeCli', () => {
   });
 
   it('keeps every --header flag ahead of the name for sse servers', () => {
-    const sseServer: McpServer = {
-      ...httpServer,
-      transport: 'sse',
-      url: 'https://api.example.com/sse',
-      headers: { 'X-A': '1', 'X-B': "it's" },
-    };
-    expect(toClaudeCli(sseServer)).toBe(
+    const [command] = toClaudeCli(claudeSse).split('\n');
+    expect(command).toBe(
       "claude mcp add --header 'X-A: 1' --header 'X-B: it'\\''s' --transport sse --scope user notion https://api.example.com/sse",
     );
+  });
+
+  it('flags the deprecated sse transport and the http fallback', () => {
+    const lines = toClaudeCli(claudeSse).split('\n').slice(1);
+    expect(lines.every((line) => line.startsWith('#'))).toBe(true);
+    expect(lines.join(' ')).toContain('the SSE transport is deprecated in Claude Code');
+    expect(lines.join(' ')).toContain('`--transport http`');
+  });
+
+  it('localises the sse deprecation note', () => {
+    expect(toClaudeCli(claudeSse, 'ja')).toContain('SSE トランスポートは非推奨');
+  });
+
+  it('adds no note for stdio or http servers', () => {
+    expect(toClaudeCli(stdioBase)).not.toContain('#');
+    expect(toClaudeCli(httpServer)).not.toContain('#');
+  });
+
+  it('warns that claude mcp add rejects a reserved server name', () => {
+    const reserved: McpServer = { ...stdioBase, name: 'workspace' };
+    const lines = toClaudeCli(reserved).split('\n');
+    expect(lines[0]).toContain('claude mcp add --transport stdio --scope user workspace --');
+    expect(lines.slice(1).join(' ')).toContain('"workspace" is a name Claude Code reserves');
+  });
+
+  it('matches reserved names without regard to case', () => {
+    for (const name of ['workspace', 'Workspace', 'claude-in-chrome', 'Computer-Use']) {
+      expect(isClaudeReservedName(name)).toBe(true);
+    }
+    expect(isClaudeReservedName('my-workspace')).toBe(false);
+  });
+
+  it('names the fields Claude Code flags for hidden whitespace, without echoing values', () => {
+    const padded: McpServer = {
+      ...stdioBase,
+      command: ' npx',
+      args: ['-y', 'chrome-devtools-mcp@latest ', 'ok'],
+      env: { CLEAN: 'value', TOKEN: 'secret\n' },
+    };
+    const note = toClaudeCli(padded).split('\n').slice(1).join(' ');
+    expect(note).toContain('leading or trailing whitespace in: command, args[1], env.TOKEN');
+    expect(note).not.toContain('secret');
+  });
+
+  it('flags whitespace in remote url and header keys', () => {
+    const padded: McpServer = {
+      ...httpServer,
+      url: 'https://mcp.notion.com/mcp ',
+      headers: { ' Authorization': 'Bearer xyz' },
+    };
+    const note = toClaudeCli(padded).split('\n').slice(1).join(' ');
+    expect(note).toContain('leading or trailing whitespace in: url, headers.Authorization');
   });
 });
 

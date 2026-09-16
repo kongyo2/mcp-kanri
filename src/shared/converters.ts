@@ -124,7 +124,49 @@ function stdioNameAndCommand(server: Extract<McpServer, { transport: 'stdio' }>)
   return parts;
 }
 
-export function toClaudeCli(server: McpServer): string {
+export const CLAUDE_RESERVED_SERVER_NAMES: readonly string[] = [
+  'workspace',
+  'claude-in-chrome',
+  'computer-use',
+  'Claude Preview',
+  'Claude Browser',
+];
+
+export function isClaudeReservedName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return CLAUDE_RESERVED_SERVER_NAMES.some((reserved) => reserved.toLowerCase() === lower);
+}
+
+function hasEdgeWhitespace(value: string): boolean {
+  return value !== value.trim();
+}
+
+function recordWhitespaceFields(
+  group: 'env' | 'headers',
+  record: Record<string, string>,
+): string[] {
+  const fields: string[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (hasEdgeWhitespace(key) || hasEdgeWhitespace(value)) fields.push(`${group}.${key.trim()}`);
+  }
+  return fields;
+}
+
+export function claudeWhitespaceFields(server: McpServer): string[] {
+  if (server.transport === 'stdio') {
+    const fields: string[] = [];
+    if (hasEdgeWhitespace(server.command)) fields.push('command');
+    server.args.forEach((arg, index) => {
+      if (hasEdgeWhitespace(arg)) fields.push(`args[${index}]`);
+    });
+    return [...fields, ...recordWhitespaceFields('env', server.env)];
+  }
+  const fields: string[] = [];
+  if (hasEdgeWhitespace(server.url)) fields.push('url');
+  return [...fields, ...recordWhitespaceFields('headers', server.headers)];
+}
+
+function claudeAddCommand(server: McpServer): string {
   const parts: string[] = ['claude', 'mcp', 'add'];
 
   if (server.transport === 'stdio') {
@@ -141,6 +183,41 @@ export function toClaudeCli(server: McpServer): string {
   parts.push(quoteShell(server.name));
   parts.push(quoteShell(server.url));
   return parts.filter(Boolean).join(' ');
+}
+
+function claudeCliNotes(server: McpServer, locale: Locale): string[] {
+  const notes: string[] = [];
+
+  if (isClaudeReservedName(server.name)) {
+    notes.push(
+      translate(locale, 'converters.claudeCli.reservedName.line1', { name: server.name }),
+      translate(locale, 'converters.claudeCli.reservedName.line2'),
+    );
+  }
+
+  const whitespaceFields = claudeWhitespaceFields(server);
+  if (whitespaceFields.length > 0) {
+    notes.push(
+      translate(locale, 'converters.claudeCli.whitespace.line1', {
+        fields: whitespaceFields.join(', '),
+      }),
+      translate(locale, 'converters.claudeCli.whitespace.line2'),
+    );
+  }
+
+  if (server.transport === 'sse') {
+    notes.push(
+      translate(locale, 'converters.claudeCli.sseDeprecated.line1'),
+      translate(locale, 'converters.claudeCli.sseDeprecated.line2'),
+      translate(locale, 'converters.claudeCli.sseDeprecated.line3'),
+    );
+  }
+
+  return notes;
+}
+
+export function toClaudeCli(server: McpServer, locale: Locale = 'en'): string {
+  return [claudeAddCommand(server), ...claudeCliNotes(server, locale)].join('\n');
 }
 
 export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {
@@ -452,7 +529,7 @@ export function toClineJson(server: McpServer): string {
 export function formatServer(format: FormatId, server: McpServer, locale: Locale = 'en'): string {
   switch (format) {
     case 'claude-cli':
-      return toClaudeCli(server);
+      return toClaudeCli(server, locale);
     case 'codex-cli':
       return toCodexCli(server, locale);
     case 'gemini-cli':

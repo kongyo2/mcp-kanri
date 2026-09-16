@@ -1,12 +1,3 @@
-/**
- * 多言語対応 (i18n) のメッセージ辞書とロケール解決ロジック。
- *
- * - main / preload / renderer / shared 全てから利用できるよう shared に置く。
- * - メッセージは「キー」で参照し、translate(locale, key, params) で展開する。
- * - schema (Zod) のバリデーションメッセージはこのファイルのキー文字列を直接埋め込み、
- *   renderer 側で `translateMessage` を通して表示文言に変換する。
- */
-
 export const SUPPORTED_LOCALES = ['ja', 'en'] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
@@ -24,15 +15,7 @@ export function resolveLocale(input: string | undefined | null): Locale {
   return DEFAULT_LOCALE;
 }
 
-/**
- * メッセージキーは `ja` の宣言から型推論する。`ja` には明示的な型注釈を付けず、
- * リテラルなプロパティ名を保持させることで `keyof typeof ja` が文字列リテラル
- * ユニオンになるようにする。`en` を `Record<MessageKey, string>` で宣言することで、
- * 片方のロケールにキーを足し忘れた / 多く書いた場合は build 時にエラーになる。
- */
-
 const ja = {
-  // App / window
   'app.title': 'MCP管理',
   'app.sidebar.title': 'MCP管理',
   'app.sidebar.newServer': '＋ 新規登録',
@@ -43,20 +26,18 @@ const ja = {
   'app.language.ja': '日本語',
   'app.language.en': 'English',
 
-  // Toasts / confirms
   'app.toast.created': '"{name}" を登録しました',
   'app.toast.updated': '"{name}" を更新しました',
   'app.toast.removed': '"{name}" を削除しました',
   'app.confirm.remove': '"{name}" を削除します。よろしいですか?',
+  'dialog.remove.title': '削除の確認',
 
-  // Main panel
   'main.create.heading': '新規 MCP を登録',
   'main.edit.heading': '"{name}" を編集',
   'main.empty.title': 'MCP を選択してください',
   'main.empty.body':
     '一つの登録から、Claude / Codex CLI コマンドや `mcpServers` JSON / VS Code `servers` JSON / Codex `config.toml` を切り替えてコピーできます。',
 
-  // Detail
   'detail.scope': 'scope: {scope}',
   'detail.command': 'command:',
   'detail.args': 'args:',
@@ -66,7 +47,6 @@ const ja = {
   'detail.button.edit': '編集',
   'detail.button.remove': '削除',
 
-  // Editor form
   'form.transport.label': 'トランスポート',
   'form.transport.hint':
     'stdio はローカルプロセス起動 / http (Streamable) と sse はリモート MCP サーバ',
@@ -99,7 +79,6 @@ const ja = {
   'form.submit.update': '更新する',
   'form.cancel': 'キャンセル',
 
-  // Validation messages (Zod) - keys embedded in schema.ts
   'validation.nameRequired': 'name は必須です',
   'validation.nameMaxLength': 'name は 64 文字以内で指定してください',
   'validation.namePattern':
@@ -107,11 +86,9 @@ const ja = {
   'validation.commandRequired': 'command は必須です',
   'validation.urlInvalid': 'URL の形式が正しくありません',
 
-  // Copy block
   'copy.button': 'コピー',
   'copy.copied': 'コピーしました',
 
-  // Format descriptors
   'format.claude-cli.title': 'Claude Code (CLI)',
   'format.claude-cli.subtitle': '`claude mcp add` コマンド形式',
   'format.codex-cli.title': 'Codex CLI',
@@ -138,7 +115,6 @@ const ja = {
   'format.cline-json.subtitle':
     'VS Code 拡張 `saoudrizwan.claude-dev` 用 (Streamable HTTP の `type` は `"streamableHttp"` で `"http"` ではない)',
 
-  // Codex CLI inline note (emitted by converters when extra HTTP headers present)
   'converters.codexCli.extraHeadersNote.line1':
     '# 注: 任意の HTTP ヘッダ (上記以外) は `codex mcp add` の CLI フラグでは渡せません。',
   'converters.codexCli.extraHeadersNote.line2':
@@ -146,7 +122,6 @@ const ja = {
   'converters.codexCli.extraHeadersNote.line3':
     '#     ~/.codex/config.toml の該当 [mcp_servers.<name>] ブロックに追記してください。',
 
-  // Storage / main process errors
   'storage.error.readFailed': 'MCP 設定ストア ({path}) の読込に失敗しました: {message}',
   'storage.error.jsonParse':
     'MCP 設定ストア ({path}) は JSON として解釈できませんでした。元ファイルは隣接の .broken-* に退避しました: {message}',
@@ -155,14 +130,12 @@ const ja = {
   'storage.error.duplicateName': '同名のサーバ "{name}" が既に登録されています',
   'storage.error.notFound': 'id={id} のサーバが見つかりません',
 
-  // Renderer bootstrap
   'bootstrap.rootMissing': 'root 要素が見つかりません',
 };
 
 export type MessageKey = keyof typeof ja;
 
 const en: Record<MessageKey, string> = {
-  // App / window
   'app.title': 'MCP Kanri',
   'app.sidebar.title': 'MCP Kanri',
   'app.sidebar.newServer': '＋ New server',
@@ -173,20 +146,18 @@ const en: Record<MessageKey, string> = {
   'app.language.ja': '日本語',
   'app.language.en': 'English',
 
-  // Toasts / confirms
   'app.toast.created': 'Created "{name}"',
   'app.toast.updated': 'Updated "{name}"',
   'app.toast.removed': 'Removed "{name}"',
   'app.confirm.remove': 'Delete "{name}". Are you sure?',
+  'dialog.remove.title': 'Confirm deletion',
 
-  // Main panel
   'main.create.heading': 'Register a new MCP server',
   'main.edit.heading': 'Edit "{name}"',
   'main.empty.title': 'Select an MCP server',
   'main.empty.body':
     'From a single registration, switch and copy `claude` / `codex` / `gemini` / `qwen` CLI commands, `mcpServers` JSON, VS Code `servers` JSON, or Codex `config.toml`.',
 
-  // Detail
   'detail.scope': 'scope: {scope}',
   'detail.command': 'command:',
   'detail.args': 'args:',
@@ -196,7 +167,6 @@ const en: Record<MessageKey, string> = {
   'detail.button.edit': 'Edit',
   'detail.button.remove': 'Delete',
 
-  // Editor form
   'form.transport.label': 'Transport',
   'form.transport.hint':
     'stdio launches a local process; http (Streamable) and sse target remote MCP servers',
@@ -229,7 +199,6 @@ const en: Record<MessageKey, string> = {
   'form.submit.update': 'Update',
   'form.cancel': 'Cancel',
 
-  // Validation messages (Zod)
   'validation.nameRequired': 'Name is required',
   'validation.nameMaxLength': 'Name must be 64 characters or fewer',
   'validation.namePattern':
@@ -237,11 +206,9 @@ const en: Record<MessageKey, string> = {
   'validation.commandRequired': 'command is required',
   'validation.urlInvalid': 'URL is not in a valid format',
 
-  // Copy block
   'copy.button': 'Copy',
   'copy.copied': 'Copied!',
 
-  // Format descriptors
   'format.claude-cli.title': 'Claude Code (CLI)',
   'format.claude-cli.subtitle': '`claude mcp add` command form',
   'format.codex-cli.title': 'Codex CLI',
@@ -275,7 +242,6 @@ const en: Record<MessageKey, string> = {
   'converters.codexCli.extraHeadersNote.line3':
     '#       into the matching [mcp_servers.<name>] block in ~/.codex/config.toml.',
 
-  // Storage / main process errors
   'storage.error.readFailed': 'Failed to read MCP store ({path}): {message}',
   'storage.error.jsonParse':
     'MCP store ({path}) could not be parsed as JSON. The original file was moved aside as .broken-*: {message}',
@@ -284,7 +250,6 @@ const en: Record<MessageKey, string> = {
   'storage.error.duplicateName': 'A server named "{name}" is already registered',
   'storage.error.notFound': 'Server with id={id} not found',
 
-  // Renderer bootstrap
   'bootstrap.rootMissing': 'Root element was not found',
 };
 
@@ -298,7 +263,6 @@ function format(template: string, params?: Record<string, string | number>): str
   });
 }
 
-/** ロケールに応じてメッセージを取得する。未知キーはキー文字列をそのまま返す。 */
 export function translate(
   locale: Locale,
   key: MessageKey | string,

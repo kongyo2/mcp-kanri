@@ -1,11 +1,6 @@
 import { app } from 'electron';
 import { DEFAULT_LOCALE, isLocale, resolveLocale, type Locale } from '../shared/i18n.js';
 
-/**
- * main プロセス側の現在ロケール。renderer から `kanri.setLocale(...)` で更新される。
- * 起動直後の初期値は OS のロケール (`app.getLocale()`) から推測する。
- */
-
 let current: Locale | null = null;
 
 function detectInitialLocale(): Locale {

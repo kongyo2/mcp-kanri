@@ -184,6 +184,10 @@ pre {
   padding: 24px 28px;
 }
 
+.pane-heading {
+  margin-top: 0;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -193,6 +197,15 @@ pre {
   color: var(--text-muted);
   text-align: center;
   gap: 12px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  color: var(--text);
 }
 
 /* Buttons */
@@ -257,9 +270,17 @@ pre {
   color: var(--text);
 }
 
-.field .hint {
+.hint {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.hint-error {
+  color: var(--danger);
+}
+
+.hint-warning {
+  color: var(--warning);
 }
 
 .field input[type='text'],
@@ -294,6 +315,24 @@ pre {
 .field-row > .field {
   flex: 1;
   min-width: 220px;
+}
+
+.field-row > .field.field-command {
+  flex: 0 0 220px;
+  min-width: 0;
+}
+
+.field.field-scope {
+  max-width: 220px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.add-row-btn {
+  align-self: flex-start;
 }
 
 .transport-tabs {
@@ -358,6 +397,12 @@ pre {
   border-bottom: 1px solid var(--border);
   padding-bottom: 16px;
   margin-bottom: 20px;
+}
+
+.detail-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .detail-header h1 {
@@ -429,6 +474,46 @@ pre {
   position: absolute;
   top: 8px;
   right: 8px;
+}
+
+/* Modal (削除確認) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 20px 22px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-title {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.modal-message {
+  margin: 0 0 18px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 /* Toast */

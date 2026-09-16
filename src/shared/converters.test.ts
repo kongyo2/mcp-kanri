@@ -71,12 +71,6 @@ describe('toClaudeCli', () => {
     );
   });
 
-  // Claude CLI の `-e/--env` は commander の可変長オプション (`--env <env...>`) で、
-  // 次に `-` 始まりのトークンが現れるまで値を貪欲に吸い込む。`--env KEY=VALUE <name>`
-  // と並べると name が env 値として取り込まれ
-  // `Invalid environment variable format: <name>` で失敗するため、env フラグは
-  // 先頭に置き `--transport` / `--scope` を挟んでから name を出す。
-  // 参考: https://code.claude.com/docs/en/mcp.md, `claude mcp add --help` (v2.1.220)
   it('puts --env before --transport so the name is not swallowed by the variadic flag', () => {
     expect(toClaudeCli(stdioWithEnv)).toBe(
       'claude mcp add --env AIRTABLE_API_KEY=YOUR_KEY --transport stdio --scope local airtable -- npx -y airtable-mcp-server',
@@ -95,8 +89,6 @@ describe('toClaudeCli', () => {
     );
   });
 
-  // `-H/--header` も同じ可変長オプション (`--header <header...>`) なので、name / url を
-  // 直後に置くと `error: missing required argument 'name'` になる。
   it('produces http command with --header ahead of --transport', () => {
     expect(toClaudeCli(httpServer)).toBe(
       "claude mcp add --header 'Authorization: Bearer xyz' --transport http --scope user notion https://mcp.notion.com/mcp",
@@ -124,10 +116,6 @@ describe('toCodexCli', () => {
   });
 
   it('emits --env KEY=VALUE flags for stdio env (Codex uses the long --env flag only)', () => {
-    // Codex の `codex mcp add` stdio は env を `--env KEY=VALUE` (long flag のみ。`-e` は無い)
-    // で受け取り、NAME 位置引数の前に並べても clap が正しく解釈する。
-    // 参考: openai/codex `codex-rs/cli/src/mcp_cmd.rs` `AddMcpStdioArgs.env`
-    //       (`#[arg(long, value_parser = parse_env_pair, value_name = "KEY=VALUE")]`)。
     expect(toCodexCli(stdioWithEnv)).toBe(
       'codex mcp add --env AIRTABLE_API_KEY=YOUR_KEY airtable -- npx -y airtable-mcp-server',
     );
@@ -255,7 +243,6 @@ describe('toCodexToml', () => {
     const text = toCodexToml(httpServer);
     expect(text).toContain('[mcp_servers.notion]');
     expect(text).toContain('url = "https://mcp.notion.com/mcp"');
-    // `Authorization: Bearer xyz` はリテラル値なので bearer_token_env_var ではなく http_headers
     expect(text).toContain('http_headers = { Authorization = "Bearer xyz" }');
     expect(text).not.toContain('bearer_token_env_var');
   });
@@ -267,7 +254,6 @@ describe('toCodexToml', () => {
     };
     const text = toCodexToml(tokenServer);
     expect(text).toContain('bearer_token_env_var = "NOTION_TOKEN"');
-    // `${NOTION_TOKEN}` がリテラルとして http_headers に書き出されないこと
     expect(text).not.toContain('http_headers');
     expect(text).not.toContain('${NOTION_TOKEN}');
   });
@@ -323,10 +309,6 @@ describe('toCodexToml', () => {
 
 describe('toGeminiCli', () => {
   it('matches the chrome-devtools-mcp README pattern (project scope, stdio default, -- separator before args)', () => {
-    // chrome-devtools-mcp README: gemini mcp add chrome-devtools npx chrome-devtools-mcp@latest
-    // 既定 scope を project / 既定 transport を stdio として `--transport` は省略する。
-    // ただし server 側 args (`-y` 等) は `--` で区切らないと yargs の既知フラグ
-    // (`-e` `-H` `--scope` 等) と衝突する場合があるので、args が 1 つでもあれば常に `--` を挟む。
     expect(toGeminiCli({ ...stdioBase, scope: 'project' })).toBe(
       'gemini mcp add --scope project chrome-devtools npx -- -y chrome-devtools-mcp@latest',
     );
@@ -350,8 +332,6 @@ describe('toGeminiCli', () => {
   });
 
   it('keeps server args that look like flags intact via -- (e.g. docker -e ENV=val)', () => {
-    // 例: docker run で動かすサーバを想定。`-e` は gemini-cli の env フラグと衝突するので
-    // `--` を挟まないと server args が `mcp add` 側の `-e` として誤って消費される。
     const docker: McpServer = {
       ...stdioBase,
       name: 'pg',
@@ -431,8 +411,6 @@ describe('toClaudeDesktop', () => {
   });
 
   it('bridges http (Streamable HTTP) servers with --transport streamablehttp', () => {
-    // mcp-proxy のクライアント側 transport 既定は SSE のため、ソースが
-    // `transport: "http"` の場合は `--transport streamablehttp` を明示する必要がある。
     const parsed: unknown = JSON.parse(toClaudeDesktop(httpServer));
     expect(parsed).toEqual({
       mcpServers: {
@@ -555,9 +533,6 @@ describe('toAntigravityJson', () => {
   });
 
   it('uses serverUrl (camelCase) — not url — for http (Streamable HTTP) servers', () => {
-    // Antigravity の独特な仕様: リモート URL のキー名は `serverUrl` で、
-    // mcpServers JSON / VS Code 形式の `url` とは異なる。
-    // 参考: https://antigravity.google/docs/mcp の "Transport (one required)" の項。
     const parsed: unknown = JSON.parse(toAntigravityJson(httpServer));
     expect(parsed).toEqual({
       mcpServers: {
@@ -637,9 +612,6 @@ describe('toAntigravityJson', () => {
   });
 
   it('emits literal Authorization: Bearer ${ENV_VAR} headers as-is (Antigravity does not interpolate)', () => {
-    // Antigravity の docs にあるサンプルは `"Authorization": "Bearer YOUR_API_TOKEN"`
-    // のようなリテラル値で、Codex の `bearer_token_env_var` のような env 名指定の
-    // 仕組みはない。`${ENV_VAR}` 形式の値はリテラル文字列としてそのまま書き出す。
     const tokenServer: McpServer = {
       ...httpServer,
       headers: { Authorization: 'Bearer ${NOTION_TOKEN}' },
@@ -661,8 +633,6 @@ describe('toAntigravityJson', () => {
 
 describe('toClineJson', () => {
   it('emits stdio entry with explicit type:"stdio"', () => {
-    // Cline スキーマでは type は optional だが、明確化のため常に出力する。
-    // 参考: cline/src/services/mcp/schemas.ts `ServerConfigSchema`
     const parsed: unknown = JSON.parse(toClineJson(stdioBase));
     expect(parsed).toEqual({
       mcpServers: {
@@ -700,10 +670,6 @@ describe('toClineJson', () => {
   });
 
   it('uses type:"streamableHttp" — NOT "http" — for Streamable HTTP transport', () => {
-    // Cline 独自仕様: Streamable HTTP の type リテラルは `"streamableHttp"` (camelCase)。
-    // Cursor / VS Code / Claude Code の `"http"` とは異なる。
-    // 参考: cline/src/services/mcp/schemas.ts の z.literal("streamableHttp") と
-    //       cline/src/services/mcp/McpHub.ts `addRemoteServer` のデフォルト値。
     const parsed: unknown = JSON.parse(toClineJson(httpServer));
     expect(parsed).toEqual({
       mcpServers: {
@@ -717,8 +683,6 @@ describe('toClineJson', () => {
   });
 
   it('does NOT use the bare "http" type literal for Streamable HTTP', () => {
-    // 回帰防止: `"type": "http"` を出してしまうと Cline の z.discriminatedUnion で
-    // 弾かれる (`http` というリテラルは存在しない)。
     const text = toClineJson(httpServer);
     expect(text).toContain('"streamableHttp"');
     expect(text).not.toMatch(/"type":\s*"http"/);
@@ -762,7 +726,6 @@ describe('toClineJson', () => {
   });
 
   it('produces JSON validatable by the Cline schema discriminated union (stdio)', () => {
-    // 構造的に Cline schemas.ts の discriminated union のいずれかに合致することを確認する。
     const parsed = JSON.parse(toClineJson(stdioBase)) as {
       mcpServers: Record<string, { type: string; command?: string; url?: string }>;
     };
@@ -795,10 +758,8 @@ describe('formatServer dispatch', () => {
     expect(formatServer('vscode-json', stdioBase)).toContain('"servers"');
     expect(formatServer('codex-toml', stdioBase)).toContain('[mcp_servers.');
     expect(formatServer('antigravity-json', stdioBase)).toContain('"mcpServers"');
-    // Antigravity の HTTP は `serverUrl` キーを使う点を dispatch でも確認する。
     expect(formatServer('antigravity-json', httpServer)).toContain('"serverUrl"');
     expect(formatServer('cline-json', stdioBase)).toContain('"mcpServers"');
-    // Cline の HTTP は `"streamableHttp"` リテラルを使う点を dispatch でも確認する。
     expect(formatServer('cline-json', httpServer)).toContain('"streamableHttp"');
   });
 });

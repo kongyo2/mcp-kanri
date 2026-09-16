@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Root } from '../Root';
@@ -93,6 +93,24 @@ describe('removal', () => {
     expect(ports.api.store.map((server) => server.name)).toEqual(['beta']);
   });
 
+  it('opens with focus inside the dialog, wraps Tab and closes on Escape', async () => {
+    const { user } = await mount();
+    await user.click(screen.getByRole('button', { name: /alpha/ }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('dialog');
+    const accept = within(dialog).getByRole('button', { name: 'Delete' });
+    const cancel = within(dialog).getByRole('button', { name: 'Cancel' });
+    expect(document.activeElement).toBe(cancel);
+
+    await user.tab();
+    expect(document.activeElement).toBe(accept);
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'alpha' })).toBeDefined();
+  });
+
   it('lets the scheduled timer clear the toast', async () => {
     const { ports, user } = await mount();
     await user.click(screen.getByRole('button', { name: /alpha/ }));
@@ -127,6 +145,26 @@ describe('editor form', () => {
     const created = ports.api.store.find((server) => server.name === 'notion');
     expect(created).toMatchObject({ transport: 'stdio', command: 'npx', args: ['-y'] });
     expect(created?.transport === 'stdio' ? created.env : null).toEqual({ API_KEY: 'secret' });
+  });
+
+  it('keeps the sidebar fresh when a save lands after the user clicked away', async () => {
+    const { ports, user } = await mount();
+    const release = ports.api.holdNextWrite();
+
+    await user.click(screen.getByRole('button', { name: '＋ New server' }));
+    await user.type(screen.getByLabelText('Name (server-name)'), 'notion');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await user.click(screen.getByRole('button', { name: /alpha/ }));
+    expect(await screen.findByRole('heading', { name: 'alpha' })).toBeDefined();
+
+    await act(async () => {
+      release();
+    });
+
+    expect(await screen.findByRole('button', { name: /notion/ })).toBeDefined();
+    expect(await screen.findByText('Created "notion"')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'alpha' })).toBeDefined();
   });
 
   it('swaps the fields when the transport tab changes', async () => {

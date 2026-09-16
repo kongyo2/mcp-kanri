@@ -37,16 +37,38 @@ export class EffectRunner {
       case 'store/create':
         void this.#settle(
           this.#ports.api.create(effect.input),
-          (server) => ({ scope: 'domain', type: 'submit/succeeded', server }),
-          (message) => ({ scope: 'domain', type: 'submit/failed', message }),
+          (server) => ({
+            scope: 'domain',
+            type: 'submit/succeeded',
+            server,
+            ticket: effect.ticket,
+            created: true,
+          }),
+          (message) => ({
+            scope: 'domain',
+            type: 'submit/failed',
+            message,
+            ticket: effect.ticket,
+          }),
         );
         return;
 
       case 'store/update':
         void this.#settle(
           this.#ports.api.update(effect.id, effect.input),
-          (server) => ({ scope: 'domain', type: 'submit/succeeded', server }),
-          (message) => ({ scope: 'domain', type: 'submit/failed', message }),
+          (server) => ({
+            scope: 'domain',
+            type: 'submit/succeeded',
+            server,
+            ticket: effect.ticket,
+            created: false,
+          }),
+          (message) => ({
+            scope: 'domain',
+            type: 'submit/failed',
+            message,
+            ticket: effect.ticket,
+          }),
         );
         return;
 

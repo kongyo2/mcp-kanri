@@ -194,16 +194,24 @@ describe('submitting', () => {
     expect(result.effects[0]).toMatchObject({ kind: 'store/update', id: server.id });
   });
 
+  function ticketOf(state: AppState): number {
+    if (state.phase.status !== 'submitting') throw new Error('expected submitting');
+    return state.phase.ticket;
+  }
+
+  function submitting(): AppState {
+    return transition(validDraftState(), { scope: 'domain', type: 'submit/requested' }).state;
+  }
+
   it('selects the saved server, toasts and reloads on success', () => {
-    const submitting = transition(validDraftState(), {
-      scope: 'domain',
-      type: 'submit/requested',
-    }).state;
+    const state = submitting();
     const saved = makeServer({ id: 'new-1', name: 'notion' });
-    const result = transition(submitting, {
+    const result = transition(state, {
       scope: 'domain',
       type: 'submit/succeeded',
       server: saved,
+      ticket: ticketOf(state),
+      created: true,
     });
     expect(result.state.phase.status).toBe('browsing');
     expect(result.state.selectedId).toBe('new-1');
@@ -212,18 +220,72 @@ describe('submitting', () => {
   });
 
   it('reopens the form with the error when saving fails', () => {
-    const submitting = transition(validDraftState(), {
-      scope: 'domain',
-      type: 'submit/requested',
-    }).state;
-    const result = transition(submitting, {
+    const state = submitting();
+    const result = transition(state, {
       scope: 'domain',
       type: 'submit/failed',
       message: 'duplicate name',
+      ticket: ticketOf(state),
     });
     if (result.state.phase.status !== 'composing') throw new Error('expected composing');
     expect(result.state.phase.compose.error).toBe('duplicate name');
     expect(result.state.toast).toMatchObject({ kind: 'error', message: 'duplicate name' });
+  });
+
+  it('still reloads when the save lands after the user navigated away', () => {
+    const state = submitting();
+    const ticket = ticketOf(state);
+    const navigated = drive(state, { scope: 'domain', type: 'compose/create-requested' });
+    const saved = makeServer({ id: 'new-1', name: 'notion' });
+
+    const result = transition(navigated, {
+      scope: 'domain',
+      type: 'submit/succeeded',
+      server: saved,
+      ticket,
+      created: true,
+    });
+
+    expect(kinds(result.effects)).toContain('store/list');
+    expect(result.state.toast?.message).toBe('Created "notion"');
+    expect(result.state.phase.status).toBe('composing');
+    expect(result.state.selectedId).toBeNull();
+  });
+
+  it('never applies one submission result to another submission', () => {
+    const first = submitting();
+    const staleTicket = ticketOf(first);
+    const second = transition(
+      drive(
+        first,
+        { scope: 'domain', type: 'compose/create-requested' },
+        { scope: 'domain', type: 'draft/field-changed', field: 'name', value: 'linear' },
+      ),
+      { scope: 'domain', type: 'submit/requested' },
+    ).state;
+    expect(ticketOf(second)).not.toBe(staleTicket);
+
+    const result = transition(second, {
+      scope: 'domain',
+      type: 'submit/failed',
+      message: 'duplicate name',
+      ticket: staleTicket,
+    });
+
+    expect(result.state.phase.status).toBe('submitting');
+    expect(result.state.toast).toMatchObject({ kind: 'error', message: 'duplicate name' });
+  });
+
+  it('labels the toast from the operation that ran, not the current form', () => {
+    const state = submitting();
+    const result = transition(state, {
+      scope: 'domain',
+      type: 'submit/succeeded',
+      server: makeServer({ id: 'srv-x', name: 'ctx7' }),
+      ticket: ticketOf(state),
+      created: false,
+    });
+    expect(result.state.toast?.message).toBe('Updated "ctx7"');
   });
 });
 

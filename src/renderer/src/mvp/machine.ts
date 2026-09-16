@@ -13,6 +13,7 @@ import {
   type AppState,
   type ComposeContext,
   type KeyValueRow,
+  type SubmittingPhase,
 } from './state';
 
 export interface Transition {
@@ -95,6 +96,13 @@ function keyValueRowsOf(
   collection: Exclude<RowCollection, 'args'>,
 ): WritableDraft<KeyValueRow>[] {
   return collection === 'env' ? compose.draft.env : compose.draft.headers;
+}
+
+function ownsSubmission(
+  state: AppState,
+  ticket: number,
+): state is AppState & { readonly phase: SubmittingPhase } {
+  return state.phase.status === 'submitting' && state.phase.ticket === ticket;
 }
 
 function localeEffects(state: AppState): readonly Effect[] {
@@ -252,37 +260,37 @@ export function transition(state: AppState, intent: DomainIntent): Transition {
       const compose = state.phase.compose;
       if (!validateDraft(compose.draft).ok) return idle(state);
       const input = draftToInput(compose.draft);
+      const ticket = state.seq + 1;
       return {
-        state: { ...state, phase: { status: 'submitting', compose: { ...compose, error: null } } },
+        state: {
+          ...state,
+          seq: ticket,
+          phase: { status: 'submitting', compose: { ...compose, error: null }, ticket },
+        },
         effects: [
           compose.target.kind === 'create'
-            ? { kind: 'store/create', input }
-            : { kind: 'store/update', id: compose.target.serverId, input },
+            ? { kind: 'store/create', input, ticket }
+            : { kind: 'store/update', id: compose.target.serverId, input, ticket },
         ],
       };
     }
 
     case 'submit/succeeded': {
-      if (state.phase.status !== 'submitting') return idle(state);
-      const created = state.phase.compose.target.kind === 'create';
+      const key = intent.created ? 'app.toast.created' : 'app.toast.updated';
+      const params = { name: intent.server.name };
+      if (!ownsSubmission(state, intent.ticket)) {
+        return merge(withToast(state, 'success', key, params), [{ kind: 'store/list' }]);
+      }
       const base: AppState = {
         ...state,
         phase: { status: 'browsing' },
         selectedId: intent.server.id,
       };
-      const toast = withToast(
-        base,
-        'success',
-        created ? 'app.toast.created' : 'app.toast.updated',
-        {
-          name: intent.server.name,
-        },
-      );
-      return merge(toast, [{ kind: 'store/list' }]);
+      return merge(withToast(base, 'success', key, params), [{ kind: 'store/list' }]);
     }
 
     case 'submit/failed': {
-      if (state.phase.status !== 'submitting') return withErrorToast(state, intent.message);
+      if (!ownsSubmission(state, intent.ticket)) return withErrorToast(state, intent.message);
       const reopened: AppState = {
         ...state,
         phase: { status: 'composing', compose: { ...state.phase.compose, error: intent.message } },

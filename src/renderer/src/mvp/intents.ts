@@ -82,8 +82,19 @@ export type DomainIntent =
       readonly value: string;
     }
   | { readonly scope: 'domain'; readonly type: 'submit/requested' }
-  | { readonly scope: 'domain'; readonly type: 'submit/succeeded'; readonly server: McpServer }
-  | { readonly scope: 'domain'; readonly type: 'submit/failed'; readonly message: string }
+  | {
+      readonly scope: 'domain';
+      readonly type: 'submit/succeeded';
+      readonly server: McpServer;
+      readonly ticket: number;
+      readonly created: boolean;
+    }
+  | {
+      readonly scope: 'domain';
+      readonly type: 'submit/failed';
+      readonly message: string;
+      readonly ticket: number;
+    }
   | { readonly scope: 'domain'; readonly type: 'removal/requested'; readonly serverId: string }
   | { readonly scope: 'domain'; readonly type: 'removal/confirmed' }
   | { readonly scope: 'domain'; readonly type: 'removal/cancelled' }

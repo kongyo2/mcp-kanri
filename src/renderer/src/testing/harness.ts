@@ -6,6 +6,7 @@ import type { Ports, TimerPort } from '../mvp/ports';
 export interface FakeApi extends KanriApi {
   readonly store: McpServer[];
   failNextWith: (message: string) => void;
+  holdNextWrite: () => () => void;
 }
 
 let idCounter = 0;
@@ -36,6 +37,8 @@ export function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
   let pendingFailure: string | null = null;
   let created = 0;
 
+  let gate: { promise: Promise<void>; release: () => void } | null = null;
+
   const takeFailure = (): void => {
     if (pendingFailure === null) return;
     const message = pendingFailure;
@@ -43,16 +46,34 @@ export function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
     throw new Error(message);
   };
 
+  const passGate = async (): Promise<void> => {
+    const held = gate;
+    if (held === null) return;
+    gate = null;
+    await held.promise;
+  };
+
   return {
     store,
     failNextWith: (message: string) => {
       pendingFailure = message;
+    },
+    holdNextWrite: () => {
+      let release = (): void => {};
+      const promise = new Promise<void>((resolve) => {
+        release = () => {
+          resolve();
+        };
+      });
+      gate = { promise, release };
+      return release;
     },
     list: async () => {
       takeFailure();
       return [...store];
     },
     create: async (input) => {
+      await passGate();
       takeFailure();
       created += 1;
       const server = materialize(input, `new-${created}`);
@@ -60,6 +81,7 @@ export function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
       return server;
     },
     update: async (id, input) => {
+      await passGate();
       takeFailure();
       const index = store.findIndex((s) => s.id === id);
       const server = materialize(input, id);

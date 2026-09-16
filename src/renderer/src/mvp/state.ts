@@ -46,11 +46,17 @@ export interface PendingRemoval {
   readonly name: string;
 }
 
+export interface SubmittingPhase {
+  readonly status: 'submitting';
+  readonly compose: ComposeContext;
+  readonly ticket: number;
+}
+
 export type Phase =
   | { readonly status: 'booting' }
   | { readonly status: 'browsing' }
   | { readonly status: 'composing'; readonly compose: ComposeContext }
-  | { readonly status: 'submitting'; readonly compose: ComposeContext }
+  | SubmittingPhase
   | { readonly status: 'confirming'; readonly pending: PendingRemoval }
   | { readonly status: 'removing'; readonly pending: PendingRemoval };
 

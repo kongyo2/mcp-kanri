@@ -7,8 +7,13 @@ export type TimerKey = 'toast' | 'clipboard';
 export type Effect =
   | { readonly kind: 'store/list' }
   | { readonly kind: 'store/path' }
-  | { readonly kind: 'store/create'; readonly input: McpServerInput }
-  | { readonly kind: 'store/update'; readonly id: string; readonly input: McpServerInput }
+  | { readonly kind: 'store/create'; readonly input: McpServerInput; readonly ticket: number }
+  | {
+      readonly kind: 'store/update';
+      readonly id: string;
+      readonly input: McpServerInput;
+      readonly ticket: number;
+    }
   | { readonly kind: 'store/remove'; readonly serverId: string }
   | { readonly kind: 'locale/publish'; readonly locale: Locale }
   | { readonly kind: 'locale/persist'; readonly locale: Locale }

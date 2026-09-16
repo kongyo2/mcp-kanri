@@ -1,7 +1,7 @@
 import type { McpServer, McpServerInput } from '../../../shared/schema';
 import type { KanriApi } from '../../../shared/ipc';
 import type { Locale } from '../../../shared/i18n';
-import type { Ports, TimerPort } from '../mvp/ports';
+import { createFocusAnchor, type Ports, type TimerPort } from '../mvp/ports';
 
 export interface FakeApi extends KanriApi {
   readonly store: McpServer[];
@@ -137,6 +137,7 @@ export interface TestPorts extends Ports {
   readonly titles: string[];
   readonly langs: string[];
   readonly warnings: string[];
+  readonly focusCalls: string[];
 }
 
 export function createTestPorts(
@@ -153,6 +154,8 @@ export function createTestPorts(
   const titles: string[] = [];
   const langs: string[] = [];
   const warnings: string[] = [];
+  const focusCalls: string[] = [];
+  const focusAnchor = createFocusAnchor(globalThis.document);
 
   return {
     api,
@@ -162,6 +165,7 @@ export function createTestPorts(
     titles,
     langs,
     warnings,
+    focusCalls,
     timers: timerControl.port,
     clipboard: {
       writeText: (text) => {
@@ -175,6 +179,14 @@ export function createTestPorts(
     document: {
       setTitle: (title) => titles.push(title),
       setLang: (lang) => langs.push(lang),
+      captureFocus: () => {
+        focusCalls.push('capture');
+        focusAnchor.capture();
+      },
+      restoreFocus: () => {
+        focusCalls.push('restore');
+        focusAnchor.restore();
+      },
     },
     preferences: {
       readLocale: () => options.locale ?? 'en',

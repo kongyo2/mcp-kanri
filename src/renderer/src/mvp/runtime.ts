@@ -110,6 +110,14 @@ export class EffectRunner {
         );
         return;
 
+      case 'focus/capture':
+        this.#ports.document.captureFocus();
+        return;
+
+      case 'focus/restore':
+        this.#ports.document.restoreFocus();
+        return;
+
       case 'timer/start': {
         this.#cancelTimer(effect.key);
         const intent = effect.intent;

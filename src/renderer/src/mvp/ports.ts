@@ -14,6 +14,28 @@ export interface TimerPort {
 export interface DocumentPort {
   setTitle: (title: string) => void;
   setLang: (lang: string) => void;
+  captureFocus: () => void;
+  restoreFocus: () => void;
+}
+
+export interface FocusAnchor {
+  capture: () => void;
+  restore: () => void;
+}
+
+export function createFocusAnchor(doc: Document): FocusAnchor {
+  let anchor: HTMLElement | null = null;
+  return {
+    capture: () => {
+      const active = doc.activeElement;
+      anchor = active instanceof HTMLElement ? active : null;
+    },
+    restore: () => {
+      const target = anchor;
+      anchor = null;
+      if (target !== null && target.isConnected) target.focus();
+    },
+  };
 }
 
 export interface PreferencesPort {
@@ -47,6 +69,7 @@ export function detectInitialLocale(): Locale {
 }
 
 export function createBrowserPorts(api: KanriApi = kanri): Ports {
+  const focusAnchor = createFocusAnchor(document);
   return {
     api,
     clipboard: {
@@ -65,6 +88,8 @@ export function createBrowserPorts(api: KanriApi = kanri): Ports {
       setLang: (lang) => {
         document.documentElement.lang = lang;
       },
+      captureFocus: focusAnchor.capture,
+      restoreFocus: focusAnchor.restore,
     },
     preferences: {
       readLocale: detectInitialLocale,

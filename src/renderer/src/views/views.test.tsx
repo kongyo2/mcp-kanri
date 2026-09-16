@@ -120,6 +120,19 @@ describe('removal', () => {
     expect(screen.getByRole('heading', { name: 'alpha' })).toBeDefined();
   });
 
+  it('hands focus back to the button that opened the dialog', async () => {
+    const { ports, user } = await mount();
+    await user.click(screen.getByRole('button', { name: /alpha/ }));
+
+    const trigger = await screen.findByRole('button', { name: 'Delete' });
+    await user.click(trigger);
+    expect(document.activeElement).not.toBe(trigger);
+
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(trigger);
+    expect(ports.focusCalls).toEqual(['capture', 'restore']);
+  });
+
   it('lets the scheduled timer clear the toast', async () => {
     const { ports, user } = await mount();
     await user.click(screen.getByRole('button', { name: /alpha/ }));

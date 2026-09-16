@@ -302,10 +302,13 @@ export function transition(state: AppState, intent: DomainIntent): Transition {
       if (state.phase.status !== 'browsing') return idle(state);
       const server = findServer(state, intent.serverId);
       if (server === null) return idle(state);
-      return idle({
-        ...state,
-        phase: { status: 'confirming', pending: { serverId: server.id, name: server.name } },
-      });
+      return {
+        state: {
+          ...state,
+          phase: { status: 'confirming', pending: { serverId: server.id, name: server.name } },
+        },
+        effects: [{ kind: 'focus/capture' }],
+      };
     }
 
     case 'removal/confirmed': {
@@ -319,7 +322,10 @@ export function transition(state: AppState, intent: DomainIntent): Transition {
 
     case 'removal/cancelled': {
       if (state.phase.status !== 'confirming') return idle(state);
-      return idle({ ...state, phase: { status: 'browsing' } });
+      return {
+        state: { ...state, phase: { status: 'browsing' } },
+        effects: [{ kind: 'focus/restore' }],
+      };
     }
 
     case 'removal/succeeded': {
@@ -333,13 +339,13 @@ export function transition(state: AppState, intent: DomainIntent): Transition {
       const toast = withToast(cleared.state, 'success', 'app.toast.removed', {
         name: pending.name,
       });
-      return merge(toast, [...cleared.effects, { kind: 'store/list' }]);
+      return merge(toast, [...cleared.effects, { kind: 'focus/restore' }, { kind: 'store/list' }]);
     }
 
     case 'removal/failed': {
-      const base: AppState =
-        state.phase.status === 'removing' ? { ...state, phase: { status: 'browsing' } } : state;
-      return withErrorToast(base, intent.message);
+      if (state.phase.status !== 'removing') return withErrorToast(state, intent.message);
+      const reopened: AppState = { ...state, phase: { status: 'browsing' } };
+      return merge(withErrorToast(reopened, intent.message), [{ kind: 'focus/restore' }]);
     }
 
     case 'format/selected': {
@@ -372,11 +378,11 @@ export function transition(state: AppState, intent: DomainIntent): Transition {
 
     case 'locale/changed': {
       if (state.locale === intent.locale) return idle(state);
-      const next: AppState = { ...state, locale: intent.locale };
-      return {
-        state: next,
-        effects: [...localeEffects(next), { kind: 'locale/persist', locale: intent.locale }],
-      };
+      const relocalized = resetCopied({ ...state, locale: intent.locale });
+      return merge(relocalized, [
+        ...localeEffects(relocalized.state),
+        { kind: 'locale/persist', locale: intent.locale },
+      ]);
     }
 
     case 'toast/expired':

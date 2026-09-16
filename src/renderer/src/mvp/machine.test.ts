@@ -331,9 +331,35 @@ describe('removal', () => {
   });
 
   it('goes back to browsing when cancelled', () => {
-    const state = transition(confirming(), { scope: 'domain', type: 'removal/cancelled' }).state;
-    expect(state.phase.status).toBe('browsing');
-    expect(state.selectedId).toBe(server.id);
+    const result = transition(confirming(), { scope: 'domain', type: 'removal/cancelled' });
+    expect(result.state.phase.status).toBe('browsing');
+    expect(result.state.selectedId).toBe(server.id);
+    expect(kinds(result.effects)).toEqual(['focus/restore']);
+  });
+
+  it('parks the focus when the dialog opens and hands it back on every exit', () => {
+    expect(
+      kinds(
+        transition(
+          drive(booted([server]), {
+            scope: 'domain',
+            type: 'server/selected',
+            serverId: server.id,
+          }),
+          { scope: 'domain', type: 'removal/requested', serverId: server.id },
+        ).effects,
+      ),
+    ).toEqual(['focus/capture']);
+
+    const removing = transition(confirming(), { scope: 'domain', type: 'removal/confirmed' }).state;
+    expect(
+      kinds(transition(removing, { scope: 'domain', type: 'removal/succeeded' }).effects),
+    ).toContain('focus/restore');
+    expect(
+      kinds(
+        transition(removing, { scope: 'domain', type: 'removal/failed', message: 'nope' }).effects,
+      ),
+    ).toContain('focus/restore');
   });
 });
 
@@ -410,6 +436,18 @@ describe('locale', () => {
       'locale/persist',
     ]);
     expect(result.effects[2]).toEqual({ kind: 'document/title', title: 'MCP管理' });
+  });
+
+  it('drops copied feedback because the shown text is regenerated in the new locale', () => {
+    const server = makeServer();
+    const copied = drive(
+      booted([server]),
+      { scope: 'domain', type: 'server/selected', serverId: server.id },
+      { scope: 'domain', type: 'clipboard/succeeded' },
+    );
+    const result = transition(copied, { scope: 'domain', type: 'locale/changed', locale: 'ja' });
+    expect(result.state.copied).toBe(false);
+    expect(kinds(result.effects)).toContain('timer/cancel');
   });
 
   it('does nothing when the locale is unchanged', () => {

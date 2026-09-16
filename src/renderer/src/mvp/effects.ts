@@ -20,6 +20,8 @@ export type Effect =
   | { readonly kind: 'document/title'; readonly title: string }
   | { readonly kind: 'document/lang'; readonly lang: string }
   | { readonly kind: 'clipboard/write'; readonly text: string }
+  | { readonly kind: 'focus/capture' }
+  | { readonly kind: 'focus/restore' }
   | {
       readonly kind: 'timer/start';
       readonly key: TimerKey;

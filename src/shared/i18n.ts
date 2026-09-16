@@ -49,10 +49,10 @@ const ja = {
 
   'form.transport.label': 'トランスポート',
   'form.transport.hint':
-    'stdio はローカルプロセス起動 / http (Streamable) と sse はリモート MCP サーバ',
+    'stdio はローカルプロセス起動 / http (Streamable) と sse はリモート MCP サーバ (Claude Code では sse は非推奨)',
   'form.name.label': '名前 (server-name)',
   'form.name.hint':
-    '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`',
+    '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`。`workspace` / `claude-in-chrome` / `computer-use` は Claude Code の予約名です',
   'form.scope.label': 'scope (Claude / Gemini / Qwen CLI)',
   'form.scope.hint':
     'Claude / Gemini / Qwen CLI の `--scope` に反映 (Codex CLI は scope を持たず、常に `~/.codex/config.toml` のグローバル設定)',
@@ -92,7 +92,8 @@ const ja = {
   'copy.copied': 'コピーしました',
 
   'format.claude-cli.title': 'Claude Code (CLI)',
-  'format.claude-cli.subtitle': '`claude mcp add` コマンド形式',
+  'format.claude-cli.subtitle':
+    '`claude mcp add` コマンド形式 (local / user は `~/.claude.json`、project はプロジェクト直下の `.mcp.json` に書き込み)',
   'format.codex-cli.title': 'Codex CLI',
   'format.codex-cli.subtitle': '`codex mcp add` コマンド形式',
   'format.gemini-cli.title': 'Gemini CLI',
@@ -116,6 +117,21 @@ const ja = {
   'format.cline-json.title': 'Cline (cline_mcp_settings.json)',
   'format.cline-json.subtitle':
     'VS Code 拡張 `saoudrizwan.claude-dev` 用 (Streamable HTTP の `type` は `"streamableHttp"` で `"http"` ではない)',
+
+  'converters.claudeCli.reservedName.line1':
+    '# 注: "{name}" は Claude Code が組み込みサーバ用に予約している名前です。',
+  'converters.claudeCli.reservedName.line2':
+    '#     `claude mcp add` はこの名前をエラーで拒否するため、別名に変更してください。',
+  'converters.claudeCli.whitespace.line1':
+    '# 注: 次のフィールドの先頭 / 末尾に空白が含まれています: {fields}',
+  'converters.claudeCli.whitespace.line2':
+    '#     Claude Code は空白を除去せずそのまま使い、`claude mcp list` と `/mcp` で警告します。',
+  'converters.claudeCli.sseDeprecated.line1':
+    '# 注: Claude Code では SSE トランスポートは非推奨です。サービスが HTTP',
+  'converters.claudeCli.sseDeprecated.line2':
+    '#     (Streamable HTTP) エンドポイントを提供していればそちらを使ってください。',
+  'converters.claudeCli.sseDeprecated.line3':
+    '#     v2.1.265 以降は SSE 専用エンドポイントも `--transport http` で追加でき、自動で SSE に切り替わります。',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# 注: 任意の HTTP ヘッダ (上記以外) は `codex mcp add` の CLI フラグでは渡せません。',
@@ -171,10 +187,10 @@ const en: Record<MessageKey, string> = {
 
   'form.transport.label': 'Transport',
   'form.transport.hint':
-    'stdio launches a local process; http (Streamable) and sse target remote MCP servers',
+    'stdio launches a local process; http (Streamable) and sse target remote MCP servers (sse is deprecated in Claude Code)',
   'form.name.label': 'Name (server-name)',
   'form.name.hint':
-    'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`',
+    'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`. `workspace` / `claude-in-chrome` / `computer-use` are reserved by Claude Code',
   'form.scope.label': 'scope (Claude / Gemini / Qwen CLI)',
   'form.scope.hint':
     'Maps to the `--scope` option of Claude / Gemini / Qwen CLI (Codex CLI has no scope; everything is stored globally in `~/.codex/config.toml`)',
@@ -214,7 +230,8 @@ const en: Record<MessageKey, string> = {
   'copy.copied': 'Copied!',
 
   'format.claude-cli.title': 'Claude Code (CLI)',
-  'format.claude-cli.subtitle': '`claude mcp add` command form',
+  'format.claude-cli.subtitle':
+    '`claude mcp add` command form (local / user write to `~/.claude.json`, project to `.mcp.json` at the project root)',
   'format.codex-cli.title': 'Codex CLI',
   'format.codex-cli.subtitle': '`codex mcp add` command form',
   'format.gemini-cli.title': 'Gemini CLI',
@@ -238,6 +255,20 @@ const en: Record<MessageKey, string> = {
   'format.cline-json.title': 'Cline (cline_mcp_settings.json)',
   'format.cline-json.subtitle':
     'VS Code extension `saoudrizwan.claude-dev` (Streamable HTTP `type` is `"streamableHttp"`, not `"http"`)',
+
+  'converters.claudeCli.reservedName.line1':
+    '# Note: "{name}" is a name Claude Code reserves for one of its built-in servers.',
+  'converters.claudeCli.reservedName.line2':
+    '#       `claude mcp add` rejects it with an error, so rename the server first.',
+  'converters.claudeCli.whitespace.line1': '# Note: leading or trailing whitespace in: {fields}',
+  'converters.claudeCli.whitespace.line2':
+    '#       Claude Code uses the values as written instead of trimming them, and warns in `claude mcp list` and `/mcp`.',
+  'converters.claudeCli.sseDeprecated.line1':
+    '# Note: the SSE transport is deprecated in Claude Code. Prefer an HTTP',
+  'converters.claudeCli.sseDeprecated.line2':
+    '#       (Streamable HTTP) endpoint whenever the service offers one.',
+  'converters.claudeCli.sseDeprecated.line3':
+    '#       Since v2.1.265 an SSE-only endpoint also works with `--transport http`, which falls back to SSE automatically.',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: arbitrary HTTP headers (other than the above) cannot be passed via `codex mcp add` CLI flags.',

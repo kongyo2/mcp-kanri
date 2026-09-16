@@ -36,7 +36,7 @@ const ja = {
   'main.edit.heading': '"{name}" を編集',
   'main.empty.title': 'MCP を選択してください',
   'main.empty.body':
-    '一つの登録から、Claude / Codex CLI コマンドや `mcpServers` JSON / VS Code `servers` JSON / Codex `config.toml` を切り替えてコピーできます。',
+    '一つの登録から、Claude / Codex / Grok CLI コマンドや `mcpServers` JSON / VS Code `servers` JSON / Codex・Grok の `config.toml` を切り替えてコピーできます。',
 
   'detail.scope': 'scope: {scope}',
   'detail.command': 'command:',
@@ -52,10 +52,10 @@ const ja = {
     'stdio はローカルプロセス起動 / http (Streamable) と sse はリモート MCP サーバ (Claude Code では sse は非推奨)',
   'form.name.label': '名前 (server-name)',
   'form.name.hint':
-    '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`。`workspace` / `claude-in-chrome` / `computer-use` は Claude Code の予約名です',
-  'form.scope.label': 'scope (Claude / Gemini / Qwen CLI)',
+    '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`。`workspace` / `claude-in-chrome` / `computer-use` は Claude Code の予約名です。Grok は英字か `_` で始まり、末尾が `_` でなく `__` を含まない名前のみツールを登録します',
+  'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Claude / Gemini / Qwen CLI の `--scope` に反映 (Codex CLI は scope を持たず、常に `~/.codex/config.toml` のグローバル設定)',
+    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (Codex CLI は scope を持たず、常に `~/.codex/config.toml` のグローバル設定。Grok は user / project のみで local は project に丸めます)',
   'form.scope.local': 'local (現プロジェクトのみ)',
   'form.scope.project': 'project (.mcp.json として共有)',
   'form.scope.user': 'user (全プロジェクト共通)',
@@ -102,6 +102,9 @@ const ja = {
   'format.qwen-cli.title': 'Qwen Code',
   'format.qwen-cli.subtitle':
     '`qwen mcp add` コマンド形式 (settings.json: `~/.qwen/settings.json`)',
+  'format.grok-cli.title': 'Grok Build (CLI)',
+  'format.grok-cli.subtitle':
+    '`grok mcp add` コマンド形式 (user は `%USERPROFILE%\\.grok\\config.toml`、project は `.grok\\config.toml` に書き込み)',
   'format.claude-desktop.title': 'Claude Desktop',
   'format.claude-desktop.subtitle':
     '`%APPDATA%\\Claude\\claude_desktop_config.json` (リモートは uvx mcp-proxy でブリッジ)',
@@ -111,6 +114,9 @@ const ja = {
   'format.vscode-json.subtitle': 'トップレベルキーは `servers`',
   'format.codex-toml.title': 'Codex config.toml',
   'format.codex-toml.subtitle': '`~/.codex/config.toml` 用 TOML 抜粋',
+  'format.grok-toml.title': 'Grok config.toml',
+  'format.grok-toml.subtitle':
+    '`%USERPROFILE%\\.grok\\config.toml` (user) / `.grok\\config.toml` (project) 用 TOML 抜粋 (HTTP / SSE はネイティブ対応でブリッジ不要)',
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (リモートは `serverUrl` キー / SSE は npx mcp-remote でブリッジ)',
@@ -132,6 +138,23 @@ const ja = {
     '#     (Streamable HTTP) エンドポイントを提供していればそちらを使ってください。',
   'converters.claudeCli.sseDeprecated.line3':
     '#     v2.1.265 以降は SSE 専用エンドポイントも `--transport http` で追加でき、自動で SSE に切り替わります。',
+
+  'converters.grok.nameStart.line1':
+    '# 注: "{name}" が英字または `_` 以外で始まっているため、Grok のツールカタログに登録されません。',
+  'converters.grok.nameStart.line2':
+    '#     `grok mcp add` 自体は成功しますが、`server__tool` 名が InvalidServerName で弾かれ、ツールを呼び出せません。',
+  'converters.grok.nameAmbiguous.line1':
+    '# 注: "{name}" は末尾が `_` か `__` を含むため、`server__tool` の区切りが曖昧になります。',
+  'converters.grok.nameAmbiguous.line2':
+    '#     Grok は該当ツールをカタログから除外します (InvalidOrAmbiguousQualifiedName)。名前を変更してください。',
+  'converters.grok.sseUrlSuffix.line1':
+    '# 注: URL が `/sse` で終わるため、Grok は `type` の指定に関わらず SSE として接続します。',
+  'converters.grok.sseUrlSuffix.line2':
+    '#     Streamable HTTP として接続したい場合は、末尾が `/sse` 以外のエンドポイントを指定してください。',
+  'converters.grok.localScope.line1':
+    '# 注: Grok の scope は user / project の 2 つだけのため、local は project (`.grok/config.toml`) として出力しています。',
+  'converters.grok.localScope.line2':
+    '#     全プロジェクト共通にする場合は scope を user に変更してください。',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# 注: 任意の HTTP ヘッダ (上記以外) は `codex mcp add` の CLI フラグでは渡せません。',
@@ -174,7 +197,7 @@ const en: Record<MessageKey, string> = {
   'main.edit.heading': 'Edit "{name}"',
   'main.empty.title': 'Select an MCP server',
   'main.empty.body':
-    'From a single registration, switch and copy `claude` / `codex` / `gemini` / `qwen` CLI commands, `mcpServers` JSON, VS Code `servers` JSON, or Codex `config.toml`.',
+    'From a single registration, switch and copy `claude` / `codex` / `gemini` / `qwen` / `grok` CLI commands, `mcpServers` JSON, VS Code `servers` JSON, or the Codex / Grok `config.toml`.',
 
   'detail.scope': 'scope: {scope}',
   'detail.command': 'command:',
@@ -190,10 +213,10 @@ const en: Record<MessageKey, string> = {
     'stdio launches a local process; http (Streamable) and sse target remote MCP servers (sse is deprecated in Claude Code)',
   'form.name.label': 'Name (server-name)',
   'form.name.hint':
-    'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`. `workspace` / `claude-in-chrome` / `computer-use` are reserved by Claude Code',
-  'form.scope.label': 'scope (Claude / Gemini / Qwen CLI)',
+    'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`. `workspace` / `claude-in-chrome` / `computer-use` are reserved by Claude Code. Grok only registers tools for names that start with a letter or `_`, do not end with `_`, and contain no `__`',
+  'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Maps to the `--scope` option of Claude / Gemini / Qwen CLI (Codex CLI has no scope; everything is stored globally in `~/.codex/config.toml`)',
+    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (Codex CLI has no scope; everything is stored globally in `~/.codex/config.toml`. Grok has only user / project, so local is rounded to project)',
   'form.scope.local': 'local (current project only)',
   'form.scope.project': 'project (shared as .mcp.json)',
   'form.scope.user': 'user (shared across all projects)',
@@ -240,6 +263,9 @@ const en: Record<MessageKey, string> = {
   'format.qwen-cli.title': 'Qwen Code',
   'format.qwen-cli.subtitle':
     '`qwen mcp add` command form (settings.json: `~/.qwen/settings.json`)',
+  'format.grok-cli.title': 'Grok Build (CLI)',
+  'format.grok-cli.subtitle':
+    '`grok mcp add` command form (user writes `%USERPROFILE%\\.grok\\config.toml`, project writes `.grok\\config.toml`)',
   'format.claude-desktop.title': 'Claude Desktop',
   'format.claude-desktop.subtitle':
     '`%APPDATA%\\Claude\\claude_desktop_config.json` (remote servers bridged via uvx mcp-proxy)',
@@ -249,6 +275,9 @@ const en: Record<MessageKey, string> = {
   'format.vscode-json.subtitle': 'Top-level key is `servers`',
   'format.codex-toml.title': 'Codex config.toml',
   'format.codex-toml.subtitle': 'TOML excerpt for `~/.codex/config.toml`',
+  'format.grok-toml.title': 'Grok config.toml',
+  'format.grok-toml.subtitle':
+    'TOML excerpt for `%USERPROFILE%\\.grok\\config.toml` (user) or `.grok\\config.toml` (project); HTTP / SSE are native, so no bridge is needed',
   'format.antigravity-json.title': 'Antigravity mcp_config.json',
   'format.antigravity-json.subtitle':
     '`~/.gemini/antigravity/mcp_config.json` (remote uses `serverUrl` key; SSE bridged via npx mcp-remote)',
@@ -269,6 +298,23 @@ const en: Record<MessageKey, string> = {
     '#       (Streamable HTTP) endpoint whenever the service offers one.',
   'converters.claudeCli.sseDeprecated.line3':
     '#       Since v2.1.265 an SSE-only endpoint also works with `--transport http`, which falls back to SSE automatically.',
+
+  'converters.grok.nameStart.line1':
+    '# Note: "{name}" does not start with a letter or `_`, so Grok never admits it into the tool catalog.',
+  'converters.grok.nameStart.line2':
+    '#       `grok mcp add` still succeeds, but every `server__tool` name is rejected as InvalidServerName and the tools stay unusable.',
+  'converters.grok.nameAmbiguous.line1':
+    '# Note: "{name}" ends with `_` or contains `__`, which makes the `server__tool` delimiter ambiguous.',
+  'converters.grok.nameAmbiguous.line2':
+    '#       Grok skips those tools (InvalidOrAmbiguousQualifiedName), so rename the server first.',
+  'converters.grok.sseUrlSuffix.line1':
+    '# Note: the URL ends with `/sse`, so Grok connects over SSE no matter what `type` says.',
+  'converters.grok.sseUrlSuffix.line2':
+    '#       Point at an endpoint that does not end with `/sse` if you want Streamable HTTP.',
+  'converters.grok.localScope.line1':
+    '# Note: Grok only has the user and project scopes, so local is emitted as project (`.grok/config.toml`).',
+  'converters.grok.localScope.line2':
+    '#       Switch the scope to user to share the server across every project.',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: arbitrary HTTP headers (other than the above) cannot be passed via `codex mcp add` CLI flags.',

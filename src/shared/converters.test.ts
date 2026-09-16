@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { McpServer } from './schema.js';
 import {
   formatServer,
+  grokNameIssues,
+  grokTreatsAsSse,
   isClaudeReservedName,
   mcpProxyBridge,
   quoteShell,
@@ -12,6 +14,9 @@ import {
   toCodexCli,
   toCodexToml,
   toGeminiCli,
+  toGrokCli,
+  toGrokScope,
+  toGrokToml,
   toMcpJson,
   toQwenCli,
   toVscodeJson,
@@ -450,6 +455,146 @@ describe('toQwenCli', () => {
   });
 });
 
+describe('toGrokCli', () => {
+  it('passes the stdio command after -- so server flags are not parsed by grok', () => {
+    expect(toGrokCli(stdioBase)).toBe(
+      'grok mcp add --transport stdio --scope user chrome-devtools -- npx -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('emits one -e flag per environment variable', () => {
+    expect(toGrokCli({ ...stdioWithEnv, scope: 'project' })).toBe(
+      'grok mcp add --transport stdio --scope project -e AIRTABLE_API_KEY=YOUR_KEY airtable -- npx -y airtable-mcp-server',
+    );
+  });
+
+  it('puts the URL before repeatable --header flags for remote transports', () => {
+    expect(toGrokCli(httpServer)).toBe(
+      "grok mcp add --transport http --scope user notion https://mcp.notion.com/mcp --header 'Authorization: Bearer xyz'",
+    );
+    expect(toGrokCli({ ...claudeSse, name: 'example' })).toBe(
+      "grok mcp add --transport sse --scope user example https://api.example.com/sse --header 'X-A: 1' --header 'X-B: it'\\''s'",
+    );
+  });
+
+  it('rounds the local scope to project and says so', () => {
+    const text = toGrokCli(stdioWithEnv, 'en');
+    expect(text).toContain('--scope project');
+    expect(text).toContain('# Note: Grok only has the user and project scopes');
+  });
+
+  it('warns that a name not starting with a letter or underscore never enters the catalog', () => {
+    const text = toGrokCli({ ...stdioBase, name: '2fa-tools' }, 'en');
+    expect(text).toContain('grok mcp add --transport stdio --scope user 2fa-tools --');
+    expect(text).toContain('# Note: "2fa-tools" does not start with a letter or `_`');
+  });
+
+  it('warns about an ambiguous server__tool delimiter', () => {
+    expect(toGrokCli({ ...stdioBase, name: 'tools_' }, 'en')).toContain(
+      '# Note: "tools_" ends with `_` or contains `__`',
+    );
+    expect(toGrokCli({ ...stdioBase, name: 'a__b' }, 'en')).toContain(
+      '# Note: "a__b" ends with `_` or contains `__`',
+    );
+  });
+
+  it('warns that an http URL ending in /sse is connected over SSE anyway', () => {
+    const text = toGrokCli({ ...httpServer, url: 'https://mcp.example.com/sse' }, 'en');
+    expect(text).toContain('--transport http');
+    expect(text).toContain('# Note: the URL ends with `/sse`');
+  });
+
+  it('keeps the notes out of the way for a clean registration', () => {
+    expect(toGrokCli(httpServer, 'en').split('\n')).toHaveLength(1);
+    expect(toGrokCli({ ...claudeSse, name: 'example' }, 'en').split('\n')).toHaveLength(1);
+  });
+
+  it('localises the notes', () => {
+    expect(toGrokCli({ ...stdioBase, name: 'tools_' }, 'ja')).toContain(
+      '# 注: "tools_" は末尾が `_` か `__` を含むため',
+    );
+  });
+});
+
+describe('toGrokToml', () => {
+  it('uses the [mcp_servers.<name>] table with an explicit enabled flag', () => {
+    expect(toGrokToml(stdioBase)).toBe(
+      '[mcp_servers.chrome-devtools]\n' +
+        'command = "npx"\n' +
+        'args = ["-y", "chrome-devtools-mcp@latest"]\n' +
+        'enabled = true\n',
+    );
+  });
+
+  it('emits an inline table for env', () => {
+    expect(toGrokToml(stdioWithEnv)).toContain('env = { AIRTABLE_API_KEY = "YOUR_KEY" }');
+  });
+
+  it('keeps remote servers native instead of bridging them through a stdio proxy', () => {
+    expect(toGrokToml(httpServer)).toBe(
+      '[mcp_servers.notion]\n' +
+        'url = "https://mcp.notion.com/mcp"\n' +
+        'headers = { Authorization = "Bearer xyz" }\n' +
+        'enabled = true\n',
+    );
+    expect(toGrokToml(httpServer)).not.toContain('mcp-remote');
+  });
+
+  it('marks SSE servers with type = "sse"', () => {
+    expect(toGrokToml({ ...claudeSse, name: 'example', headers: {} })).toBe(
+      '[mcp_servers.example]\n' +
+        'url = "https://api.example.com/sse"\n' +
+        'type = "sse"\n' +
+        'enabled = true\n',
+    );
+  });
+
+  it('keeps ${VAR} header references verbatim (grok expands them at load time)', () => {
+    const text = toGrokToml({ ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}' } });
+    expect(text).toContain('headers = { Authorization = "Bearer ${TOKEN}" }');
+    expect(text).not.toContain('bearer_token_env_var');
+  });
+
+  it('repeats the catalog and /sse notes as TOML comments', () => {
+    expect(toGrokToml({ ...stdioBase, name: 'tools_' }, 'en')).toContain(
+      '# Note: "tools_" ends with `_` or contains `__`',
+    );
+    expect(toGrokToml({ ...httpServer, url: 'https://mcp.example.com/sse' }, 'en')).toContain(
+      '# Note: the URL ends with `/sse`',
+    );
+  });
+
+  it('leaves the scope note to the CLI tab (a snippet is pasted into a chosen file)', () => {
+    expect(toGrokToml(stdioWithEnv, 'en')).not.toContain('user and project scopes');
+  });
+});
+
+describe('grok catalog helpers', () => {
+  it('reports every reason a name is rejected by grok tool-name admission', () => {
+    expect(grokNameIssues('chrome-devtools')).toEqual([]);
+    expect(grokNameIssues('_private')).toEqual([]);
+    expect(grokNameIssues('2fa')).toEqual(['start']);
+    expect(grokNameIssues('-lead')).toEqual(['start']);
+    expect(grokNameIssues('tools_')).toEqual(['ambiguous']);
+    expect(grokNameIssues('a__b')).toEqual(['ambiguous']);
+    expect(grokNameIssues('2fa_tools_')).toEqual(['start', 'ambiguous']);
+  });
+
+  it('mirrors the is_sse rule: type = "sse" or a URL ending in /sse', () => {
+    expect(grokTreatsAsSse(stdioBase)).toBe(false);
+    expect(grokTreatsAsSse(httpServer)).toBe(false);
+    expect(grokTreatsAsSse(claudeSse)).toBe(true);
+    expect(grokTreatsAsSse({ ...httpServer, url: 'https://mcp.example.com/sse' })).toBe(true);
+    expect(grokTreatsAsSse({ ...httpServer, url: 'https://mcp.example.com/sse?v=1' })).toBe(false);
+  });
+
+  it('maps the mcp-kanri scopes onto the two grok scopes', () => {
+    expect(toGrokScope('user')).toBe('user');
+    expect(toGrokScope('project')).toBe('project');
+    expect(toGrokScope('local')).toBe('project');
+  });
+});
+
 describe('toClaudeDesktop', () => {
   it('emits standard mcpServers JSON for stdio (no type field)', () => {
     const parsed: unknown = JSON.parse(toClaudeDesktop(stdioBase));
@@ -819,6 +964,9 @@ describe('formatServer dispatch', () => {
     expect(formatServer('codex-cli', stdioBase)).toContain('codex mcp add');
     expect(formatServer('gemini-cli', stdioBase)).toContain('gemini mcp add');
     expect(formatServer('qwen-cli', stdioBase)).toContain('qwen mcp add');
+    expect(formatServer('grok-cli', stdioBase)).toContain('grok mcp add');
+    expect(formatServer('grok-toml', stdioBase)).toContain('[mcp_servers.');
+    expect(formatServer('grok-toml', claudeSse)).toContain('type = "sse"');
     expect(formatServer('claude-desktop', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('mcp-json', stdioBase)).toContain('"mcpServers"');
     expect(formatServer('vscode-json', stdioBase)).toContain('"servers"');

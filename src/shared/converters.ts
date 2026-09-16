@@ -6,10 +6,12 @@ export type FormatId =
   | 'codex-cli'
   | 'gemini-cli'
   | 'qwen-cli'
+  | 'grok-cli'
   | 'claude-desktop'
   | 'mcp-json'
   | 'vscode-json'
   | 'codex-toml'
+  | 'grok-toml'
   | 'antigravity-json'
   | 'cline-json';
 
@@ -46,6 +48,12 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     language: 'bash',
   },
   {
+    id: 'grok-cli',
+    titleKey: 'format.grok-cli.title',
+    subtitleKey: 'format.grok-cli.subtitle',
+    language: 'bash',
+  },
+  {
     id: 'claude-desktop',
     titleKey: 'format.claude-desktop.title',
     subtitleKey: 'format.claude-desktop.subtitle',
@@ -67,6 +75,12 @@ export const FORMAT_DESCRIPTORS: readonly FormatDescriptor[] = [
     id: 'codex-toml',
     titleKey: 'format.codex-toml.title',
     subtitleKey: 'format.codex-toml.subtitle',
+    language: 'toml',
+  },
+  {
+    id: 'grok-toml',
+    titleKey: 'format.grok-toml.title',
+    subtitleKey: 'format.grok-toml.subtitle',
     language: 'toml',
   },
   {
@@ -222,12 +236,12 @@ function claudeCliNotes(server: McpServer, locale: Locale): string[] {
   return notes;
 }
 
-function asShellComment(note: string): string[] {
+function asCommentLines(note: string): string[] {
   return note.split(LINE_BREAK).map((line) => (line.startsWith('#') ? line : `# ${line}`));
 }
 
 export function toClaudeCli(server: McpServer, locale: Locale = 'en'): string {
-  const notes = claudeCliNotes(server, locale).flatMap(asShellComment);
+  const notes = claudeCliNotes(server, locale).flatMap(asCommentLines);
   return [claudeAddCommand(server), ...notes].join('\n');
 }
 
@@ -303,6 +317,82 @@ export function toGeminiCli(server: McpServer): string {
 
 export function toQwenCli(server: McpServer): string {
   return toGeminiLikeCli('qwen', server);
+}
+
+export type GrokScope = 'user' | 'project';
+
+export function toGrokScope(scope: Scope): GrokScope {
+  return scope === 'user' ? 'user' : 'project';
+}
+
+export type GrokNameIssue = 'start' | 'ambiguous';
+
+const GROK_CATALOG_NAME_START = /^[A-Za-z_]/;
+
+export function grokNameIssues(name: string): GrokNameIssue[] {
+  const issues: GrokNameIssue[] = [];
+  if (!GROK_CATALOG_NAME_START.test(name)) issues.push('start');
+  if (name.endsWith('_') || name.includes('__')) issues.push('ambiguous');
+  return issues;
+}
+
+export function grokTreatsAsSse(server: McpServer): boolean {
+  if (server.transport === 'stdio') return false;
+  return server.transport === 'sse' || server.url.endsWith('/sse');
+}
+
+function grokSharedNotes(server: McpServer, locale: Locale): string[] {
+  const notes: string[] = [];
+
+  for (const issue of grokNameIssues(server.name)) {
+    if (issue === 'start') {
+      notes.push(
+        translate(locale, 'converters.grok.nameStart.line1', { name: server.name }),
+        translate(locale, 'converters.grok.nameStart.line2'),
+      );
+    } else {
+      notes.push(
+        translate(locale, 'converters.grok.nameAmbiguous.line1', { name: server.name }),
+        translate(locale, 'converters.grok.nameAmbiguous.line2'),
+      );
+    }
+  }
+
+  if (server.transport === 'http' && grokTreatsAsSse(server)) {
+    notes.push(
+      translate(locale, 'converters.grok.sseUrlSuffix.line1'),
+      translate(locale, 'converters.grok.sseUrlSuffix.line2'),
+    );
+  }
+
+  return notes;
+}
+
+function grokAddCommand(server: McpServer): string {
+  const parts: string[] = ['grok', 'mcp', 'add', '--transport', server.transport];
+  parts.push('--scope', toGrokScope(server.scope));
+
+  if (server.transport === 'stdio') {
+    parts.push(...envFlags(server.env, '-e'));
+    parts.push(...stdioNameAndCommand(server));
+    return parts.join(' ');
+  }
+
+  parts.push(quoteShell(server.name));
+  parts.push(quoteShell(server.url));
+  parts.push(...headerFlags(server.headers));
+  return parts.join(' ');
+}
+
+export function toGrokCli(server: McpServer, locale: Locale = 'en'): string {
+  const notes = grokSharedNotes(server, locale);
+  if (server.scope === 'local') {
+    notes.push(
+      translate(locale, 'converters.grok.localScope.line1'),
+      translate(locale, 'converters.grok.localScope.line2'),
+    );
+  }
+  return [grokAddCommand(server), ...notes.flatMap(asCommentLines)].join('\n');
 }
 
 export function mcpRemoteBridge(
@@ -496,6 +586,32 @@ export function toCodexToml(server: McpServer): string {
   return lines.join('\n') + '\n';
 }
 
+export function toGrokToml(server: McpServer, locale: Locale = 'en'): string {
+  const lines: string[] = [`[mcp_servers.${tomlKey(server.name)}]`];
+
+  if (server.transport === 'stdio') {
+    lines.push(`command = ${tomlString(server.command)}`);
+    if (server.args.length > 0) {
+      lines.push(`args = ${tomlArrayOfStrings(server.args)}`);
+    }
+    if (Object.keys(server.env).length > 0) {
+      lines.push(`env = ${tomlInlineTable(server.env)}`);
+    }
+  } else {
+    lines.push(`url = ${tomlString(server.url)}`);
+    if (server.transport === 'sse') {
+      lines.push(`type = ${tomlString('sse')}`);
+    }
+    if (Object.keys(server.headers).length > 0) {
+      lines.push(`headers = ${tomlInlineTable(server.headers)}`);
+    }
+  }
+
+  lines.push('enabled = true');
+  const notes = grokSharedNotes(server, locale).flatMap(asCommentLines);
+  return [...lines, ...notes].join('\n') + '\n';
+}
+
 interface AntigravityHttp {
   serverUrl: string;
   headers?: Record<string, string>;
@@ -547,6 +663,8 @@ export function formatServer(format: FormatId, server: McpServer, locale: Locale
       return toGeminiCli(server);
     case 'qwen-cli':
       return toQwenCli(server);
+    case 'grok-cli':
+      return toGrokCli(server, locale);
     case 'claude-desktop':
       return toClaudeDesktop(server);
     case 'mcp-json':
@@ -555,6 +673,8 @@ export function formatServer(format: FormatId, server: McpServer, locale: Locale
       return toVscodeJson(server);
     case 'codex-toml':
       return toCodexToml(server);
+    case 'grok-toml':
+      return toGrokToml(server, locale);
     case 'antigravity-json':
       return toAntigravityJson(server);
     case 'cline-json':

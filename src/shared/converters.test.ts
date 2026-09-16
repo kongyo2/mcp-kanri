@@ -1,17 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { McpServer } from './schema.js';
 import {
+  codexConfigPath,
+  codexEnvKeyIssues,
+  codexPlaintextAuthHeaders,
+  codexUnexpandedHeaders,
   formatServer,
   grokNameIssues,
   grokTreatsAsSse,
   isClaudeReservedName,
   mcpProxyBridge,
+  partitionCodexStdioEnv,
   quoteShell,
   toAntigravityJson,
   toClaudeCli,
   toClaudeDesktop,
   toClineJson,
   toCodexCli,
+  toCodexConfigTarget,
   toCodexToml,
   toGeminiCli,
   toGrokCli,
@@ -179,6 +185,26 @@ describe('toClaudeCli', () => {
   });
 });
 
+const codexSseBase: McpServer = {
+  id: 'srv-3',
+  name: 'notion',
+  description: '',
+  transport: 'sse',
+  url: 'https://mcp.notion.com/sse',
+  headers: {},
+  scope: 'user',
+  createdAt: 0,
+  updatedAt: 0,
+};
+
+function firstLine(text: string): string {
+  return text.split('\n')[0] ?? '';
+}
+
+function noteBody(text: string): string {
+  return text.split('\n').slice(1).join(' ');
+}
+
 describe('toCodexCli', () => {
   it('produces stdio codex mcp add command', () => {
     expect(toCodexCli(stdioBase)).toBe(
@@ -187,7 +213,7 @@ describe('toCodexCli', () => {
   });
 
   it('emits --env KEY=VALUE flags for stdio env (Codex uses the long --env flag only)', () => {
-    expect(toCodexCli(stdioWithEnv)).toBe(
+    expect(toCodexCli({ ...stdioWithEnv, scope: 'user' })).toBe(
       'codex mcp add --env AIRTABLE_API_KEY=YOUR_KEY airtable -- npx -y airtable-mcp-server',
     );
   });
@@ -216,43 +242,174 @@ describe('toCodexCli', () => {
       headers: { 'X-Custom': 'foo' },
     };
     const out = toCodexCli(customHeader);
-    expect(out).toContain('codex mcp add notion --url https://mcp.notion.com/mcp');
-    expect(out).toContain('http_headers');
-    expect(out).toContain('config.toml');
+    expect(firstLine(out)).toBe('codex mcp add notion --url https://mcp.notion.com/mcp');
+    expect(noteBody(out)).toContain('http_headers');
+    expect(noteBody(out)).toContain('$CODEX_HOME/config.toml');
+  });
+
+  it('warns that a literal Authorization token lands in config.toml in plain text', () => {
+    const note = noteBody(toCodexCli(httpServer));
+    expect(note).toContain('plain text');
+    expect(note).toContain('bearer_token_env_var');
+  });
+
+  it('claims only what `codex mcp list` shows, not that OAuth login is blocked', () => {
+    const note = noteBody(toCodexCli(httpServer));
+    expect(note).toContain('`codex mcp list` also reports this server as bearer-authenticated');
+    expect(note).not.toContain('never starts the OAuth flow');
+  });
+
+  it('keeps `Bearer ${ENV}` headers free of the plaintext-token warning', () => {
+    const tokenServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Bearer ${NOTION_TOKEN}' },
+    };
+    expect(toCodexCli(tokenServer)).not.toContain('plain text');
+  });
+
+  it('does not tell a non-Bearer scheme to become a Bearer token', () => {
+    const basicServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Basic dXNlcjpwdw==' },
+    };
+    const note = noteBody(toCodexCli(basicServer));
+    expect(note).toContain('plain text');
+    expect(note).toContain('non-Bearer scheme');
+    expect(note).toContain('env_http_headers');
+    expect(note).not.toContain('bearer_token_env_var');
+  });
+
+  it('names the $CODEX_HOME config, not a hard-coded ~/.codex path, in header instructions', () => {
+    const customHeader: McpServer = { ...httpServer, headers: { 'X-Custom': 'foo' } };
+    const note = noteBody(toCodexCli(customHeader));
+    expect(note).toContain('$CODEX_HOME/config.toml');
+    expect(note).not.toContain('~/.codex/config.toml');
   });
 
   it('bridges SSE servers via npx mcp-remote (Codex has no native SSE support)', () => {
-    const sseServer: McpServer = {
-      id: 'srv-3',
-      name: 'notion',
-      description: '',
-      transport: 'sse',
-      url: 'https://mcp.notion.com/sse',
-      headers: {},
-      scope: 'user',
-      createdAt: 0,
-      updatedAt: 0,
-    };
-    expect(toCodexCli(sseServer)).toBe(
+    expect(firstLine(toCodexCli(codexSseBase))).toBe(
       'codex mcp add notion -- npx -y mcp-remote https://mcp.notion.com/sse',
     );
+    expect(noteBody(toCodexCli(codexSseBase))).toContain('stdio and streamable_http');
   });
 
   it('passes SSE headers through to mcp-remote --header flags', () => {
     const sseServer: McpServer = {
+      ...codexSseBase,
       id: 'srv-4',
-      name: 'notion',
-      description: '',
-      transport: 'sse',
-      url: 'https://mcp.notion.com/sse',
       headers: { Authorization: 'Bearer xyz' },
-      scope: 'user',
-      createdAt: 0,
-      updatedAt: 0,
     };
-    expect(toCodexCli(sseServer)).toBe(
+    expect(firstLine(toCodexCli(sseServer))).toBe(
       "codex mcp add notion -- npx -y mcp-remote https://mcp.notion.com/sse --header 'Authorization: Bearer xyz'",
     );
+    expect(noteBody(toCodexCli(sseServer))).toContain('mcp-remote arguments stored in plain text');
+  });
+
+  it('comments out the global add for a non-user scope so pasting cannot register globally', () => {
+    const out = toCodexCli({ ...stdioBase, scope: 'project' });
+    expect(out.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+    expect(out).toContain('# codex mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest');
+    expect(out).toContain('scope="project" cannot be expressed');
+    expect(out).toContain('commented out');
+    expect(out).toContain('$CODEX_HOME/config.toml');
+    expect(out).toContain('trust_level = "trusted"');
+  });
+
+  it('keeps the command executable for user scope', () => {
+    expect(firstLine(toCodexCli({ ...stdioBase, scope: 'user' }))).not.toContain('#');
+  });
+
+  it('comments every physical line so a multiline value cannot escape the disabled block', () => {
+    const injected: McpServer = {
+      ...stdioBase,
+      scope: 'project',
+      env: { K: 'foo\necho PWNED' },
+    };
+    const lines = toCodexCli(injected).split('\n');
+    expect(lines.every((line) => line.startsWith('#'))).toBe(true);
+    expect(lines).toContain("# echo PWNED' chrome-devtools -- npx -y chrome-devtools-mcp@latest");
+  });
+
+  it('adds the shared-checkout caveat for local scope only', () => {
+    expect(noteBody(toCodexCli({ ...stdioBase, scope: 'local' }))).toContain(
+      'Codex has no local (private to you) layer',
+    );
+    expect(toCodexCli({ ...stdioBase, scope: 'project' })).not.toContain(
+      'no local (private to you)',
+    );
+  });
+
+  it('stays note-free for a user-scope registration', () => {
+    expect(toCodexCli({ ...stdioBase, scope: 'user' })).not.toContain('#');
+  });
+
+  it('warns when an env key would be silently trimmed by --env', () => {
+    const padded: McpServer = { ...stdioBase, env: { ' TOKEN ': 'v' } };
+    const note = noteBody(toCodexCli(padded));
+    expect(note).toContain('leading or trailing whitespace');
+    expect(note).toContain('" TOKEN "');
+  });
+
+  it('tells the user to rename an env key that is empty or contains =', () => {
+    const malformed: McpServer = { ...stdioBase, env: { 'A=B': 'c', '  ': 'd' } };
+    const note = noteBody(toCodexCli(malformed));
+    expect(note).toContain('cannot be used as environment variable names');
+    expect(note).toContain('Rename the key');
+    expect(note).toContain('"A=B"');
+    expect(note).toContain('"  "');
+  });
+
+  it('repeats the malformed-key warning in the TOML tab, which cannot fix it either', () => {
+    const malformed: McpServer = { ...stdioBase, env: { 'A=B': 'c' } };
+    expect(toCodexToml(malformed)).toContain('Rename the key');
+  });
+
+  it('keeps an env key with an embedded newline inside a single comment line', () => {
+    const injected: McpServer = { ...stdioBase, env: { ' A\nrm -rf /': 'v' } };
+    const lines = toCodexCli(injected).split('\n');
+    const notes = lines.slice(lines.findIndex((line) => line.startsWith('#')));
+    expect(notes.every((line) => line.startsWith('#'))).toBe(true);
+    expect(notes.join(' ')).toContain('" A\\nrm -rf /"');
+  });
+
+  it('warns that ${VAR} env values are passed through verbatim', () => {
+    const envRef: McpServer = { ...stdioBase, env: { NOTION_TOKEN: '${NOTION_TOKEN}' } };
+    const out = toCodexCli(envRef);
+    expect(firstLine(out)).toContain("--env 'NOTION_TOKEN=${NOTION_TOKEN}'");
+    expect(noteBody(out)).toContain('verbatim');
+    expect(noteBody(out)).toContain('env_vars');
+  });
+
+  it('says env_vars belongs in the parent table, not the generated env sub-table', () => {
+    const envRef: McpServer = { ...stdioBase, env: { NOTION_TOKEN: '${NOTION_TOKEN}' } };
+    const note = noteBody(toCodexCli(envRef));
+    expect(note).toContain('[mcp_servers.<name>.env] sub-table');
+    expect(note).toContain('parent [mcp_servers.<name>] table');
+    expect(note).toContain('invalid type: sequence, expected a string');
+  });
+
+  it('warns about a ${VAR} env value whose key differs, which env_vars cannot express', () => {
+    const envRef: McpServer = { ...stdioBase, env: { API_KEY: '${MY_TOKEN}' } };
+    const out = toCodexCli(envRef);
+    expect(firstLine(out)).toContain("--env 'API_KEY=${MY_TOKEN}'");
+    expect(noteBody(out)).toContain('"API_KEY"');
+    expect(noteBody(out)).toContain('without expanding them');
+  });
+
+  it('warns about a ${VAR:-default} env value, which Codex never expands', () => {
+    const envRef: McpServer = { ...stdioBase, env: { TOKEN: '${TOKEN:-fallback}' } };
+    const out = toCodexCli(envRef);
+    expect(firstLine(out)).toContain("--env 'TOKEN=${TOKEN:-fallback}'");
+    expect(noteBody(out)).toContain('"TOKEN"');
+    expect(noteBody(out)).toContain('carries a default');
+  });
+
+  it('never tells the user to rename a key the server expects', () => {
+    const envRef: McpServer = { ...stdioBase, env: { API_KEY: '${MY_TOKEN}' } };
+    const note = noteBody(toCodexCli(envRef));
+    expect(note).toContain('Do not rename the key');
+    expect(note).toContain("export the value under the key's own name");
+    expect(note).not.toContain('rename the key to match');
   });
 });
 
@@ -297,6 +454,13 @@ describe('toVscodeJson', () => {
   });
 });
 
+function tomlBody(text: string): string {
+  return text
+    .split('\n')
+    .filter((line) => !line.startsWith('#'))
+    .join('\n');
+}
+
 describe('toCodexToml', () => {
   it('uses [mcp_servers.<name>] table with snake_case key', () => {
     const text = toCodexToml(stdioBase);
@@ -305,9 +469,61 @@ describe('toCodexToml', () => {
     expect(text).toContain('args = ["-y", "chrome-devtools-mcp@latest"]');
   });
 
+  it('names $CODEX_HOME as the paste target for user scope, with ~/.codex as its default', () => {
+    expect(firstLine(toCodexToml(stdioBase))).toBe(
+      '# Paste into: $CODEX_HOME/config.toml (default: ~/.codex/config.toml)',
+    );
+  });
+
+  it('names the project-root file and the trust requirement for project scope', () => {
+    const text = toCodexToml({ ...stdioBase, scope: 'project' });
+    expect(firstLine(text)).toBe(
+      '# Paste into: .codex/config.toml at the project root (scope: project)',
+    );
+    expect(text).toContain('trust_level = "trusted"');
+    expect(text).toContain("[projects.'<absolute project path>']");
+    expect(text).not.toContain('[projects."<absolute project path>"]');
+    expect(text).toContain('TOML literal string');
+  });
+
+  it('covers the apostrophe path, which cannot be a TOML literal string', () => {
+    const text = toCodexToml({ ...stdioBase, scope: 'project' });
+    expect(text).toContain("contains `'` can it not be a literal string");
+    expect(text).toContain('escape every `\\` as `\\\\` and every `"` as `\\"`');
+  });
+
+  it('adds the shared-checkout caveat for local scope', () => {
+    const text = toCodexToml({ ...stdioBase, scope: 'local' });
+    expect(firstLine(text)).toBe(
+      '# Paste into: .codex/config.toml at the project root (scope: local)',
+    );
+    expect(text).toContain('Codex has no local (private to you) layer');
+  });
+
   it('emits inline table for env', () => {
     const text = toCodexToml(stdioWithEnv);
     expect(text).toContain('env = { AIRTABLE_API_KEY = "YOUR_KEY" }');
+    expect(text).not.toContain('env_vars');
+  });
+
+  it('moves ${VAR} env values naming their own key into env_vars', () => {
+    const envRef: McpServer = {
+      ...stdioBase,
+      env: { NOTION_TOKEN: '${NOTION_TOKEN}', PLAIN: 'value' },
+    };
+    const text = toCodexToml(envRef);
+    expect(text).toContain('env = { PLAIN = "value" }');
+    expect(text).toContain('env_vars = ["NOTION_TOKEN"]');
+    expect(text).not.toContain('"${NOTION_TOKEN}"');
+    expect(text).toContain('moved to `env_vars`');
+  });
+
+  it('keeps a ${VAR} env value whose key differs and explains it is not expanded', () => {
+    const envRef: McpServer = { ...stdioBase, env: { API_KEY: '${MY_TOKEN}' } };
+    const text = toCodexToml(envRef);
+    expect(text).toContain('env = { API_KEY = "${MY_TOKEN}" }');
+    expect(text).not.toContain('env_vars =');
+    expect(text).toContain('without expanding them');
   });
 
   it('emits literal Authorization headers in http_headers', () => {
@@ -315,7 +531,8 @@ describe('toCodexToml', () => {
     expect(text).toContain('[mcp_servers.notion]');
     expect(text).toContain('url = "https://mcp.notion.com/mcp"');
     expect(text).toContain('http_headers = { Authorization = "Bearer xyz" }');
-    expect(text).not.toContain('bearer_token_env_var');
+    expect(tomlBody(text)).not.toContain('bearer_token_env_var');
+    expect(text).toContain('stored in plain text');
   });
 
   it('maps Authorization: Bearer ${ENV_VAR} to bearer_token_env_var (Codex env-backed auth)', () => {
@@ -327,6 +544,19 @@ describe('toCodexToml', () => {
     expect(text).toContain('bearer_token_env_var = "NOTION_TOKEN"');
     expect(text).not.toContain('http_headers');
     expect(text).not.toContain('${NOTION_TOKEN}');
+    expect(text).not.toContain('plain text');
+  });
+
+  it('warns that a ${VAR:-default} header is sent verbatim, in both tabs', () => {
+    const defaulted: McpServer = {
+      ...httpServer,
+      headers: { 'X-Token': '${TOKEN:-fallback}' },
+    };
+    const toml = toCodexToml(defaulted);
+    expect(toml).toContain('http_headers = { X-Token = "${TOKEN:-fallback}" }');
+    expect(toml).toContain('cannot be mapped to `env_http_headers`');
+    expect(toml).toContain('"X-Token"');
+    expect(noteBody(toCodexCli(defaulted))).toContain('cannot be mapped to `env_http_headers`');
   });
 
   it('maps non-Authorization ${ENV_VAR} headers to env_http_headers', () => {
@@ -340,41 +570,120 @@ describe('toCodexToml', () => {
   });
 
   it('bridges SSE servers via npx mcp-remote in TOML', () => {
-    const sseServer: McpServer = {
-      id: 'srv-3',
-      name: 'notion',
-      description: '',
-      transport: 'sse',
-      url: 'https://mcp.notion.com/sse',
-      headers: {},
-      scope: 'user',
-      createdAt: 0,
-      updatedAt: 0,
-    };
-    expect(toCodexToml(sseServer)).toBe(
+    expect(tomlBody(toCodexToml(codexSseBase))).toBe(
       '[mcp_servers.notion]\n' +
         'command = "npx"\n' +
         'args = ["-y", "mcp-remote", "https://mcp.notion.com/sse"]\n',
     );
+    expect(toCodexToml(codexSseBase)).toContain('there is no SSE transport');
   });
 
   it('passes SSE headers as additional --header args in TOML bridge', () => {
     const sseServer: McpServer = {
+      ...codexSseBase,
       id: 'srv-4',
-      name: 'notion',
-      description: '',
-      transport: 'sse',
-      url: 'https://mcp.notion.com/sse',
       headers: { Authorization: 'Bearer xyz' },
-      scope: 'user',
-      createdAt: 0,
-      updatedAt: 0,
     };
-    expect(toCodexToml(sseServer)).toBe(
+    const text = toCodexToml(sseServer);
+    expect(tomlBody(text)).toBe(
       '[mcp_servers.notion]\n' +
         'command = "npx"\n' +
         'args = ["-y", "mcp-remote", "https://mcp.notion.com/sse", "--header", "Authorization: Bearer xyz"]\n',
     );
+    expect(text).toContain('mcp-remote arguments stored in plain text');
+  });
+
+  it('localizes notes through the locale argument', () => {
+    expect(toCodexToml(stdioBase, 'ja')).toContain('貼り付け先');
+    expect(formatServer('codex-toml', { ...stdioBase, scope: 'project' }, 'ja')).toContain(
+      'trust_level = "trusted"',
+    );
+  });
+});
+
+describe('codex helpers', () => {
+  it('rounds local to the project config target', () => {
+    expect(toCodexConfigTarget('user')).toBe('user');
+    expect(toCodexConfigTarget('project')).toBe('project');
+    expect(toCodexConfigTarget('local')).toBe('project');
+    expect(codexConfigPath('user')).toBe('$CODEX_HOME/config.toml');
+    expect(codexConfigPath('local')).toBe('.codex/config.toml');
+  });
+
+  it('classifies env keys the way codex mcp add parses them', () => {
+    expect(codexEnvKeyIssues({ OK: 'v', ' PAD ': 'v', 'A=B': 'v', '': 'v' })).toEqual({
+      trimmed: [' PAD '],
+      malformed: ['A=B', ''],
+    });
+  });
+
+  it('splits stdio env into literal env, env_vars, and unexpandable refs', () => {
+    expect(
+      partitionCodexStdioEnv({ SAME: '${SAME}', OTHER: '${RENAMED}', PLAIN: 'literal' }),
+    ).toEqual({
+      env: { OTHER: '${RENAMED}', PLAIN: 'literal' },
+      envVars: ['SAME'],
+      unexpanded: ['OTHER'],
+    });
+  });
+
+  it('treats ${VAR:-default} and embedded refs as unexpandable, not as plain literals', () => {
+    expect(
+      partitionCodexStdioEnv({
+        A: '${TOKEN:-fallback}',
+        B: 'prefix-${TOKEN}',
+        C: '${TOKEN}-suffix',
+        D: 'no refs here',
+      }),
+    ).toEqual({
+      env: {
+        A: '${TOKEN:-fallback}',
+        B: 'prefix-${TOKEN}',
+        C: '${TOKEN}-suffix',
+        D: 'no refs here',
+      },
+      envVars: [],
+      unexpanded: ['A', 'B', 'C'],
+    });
+  });
+
+  it('reports headers whose ${...} reference cannot become env_http_headers', () => {
+    expect(
+      codexUnexpandedHeaders({
+        Exact: '${TOKEN}',
+        Defaulted: '${TOKEN:-fallback}',
+        Embedded: 'Bearer ${TOKEN}',
+        Plain: 'literal',
+      }),
+    ).toEqual(['Defaulted', 'Embedded']);
+  });
+
+  it('does not report an Authorization header already mapped to bearer_token_env_var', () => {
+    expect(codexUnexpandedHeaders({ Authorization: 'Bearer ${TOKEN}' })).toEqual([]);
+  });
+
+  it('splits literal Authorization values by scheme so the advice matches', () => {
+    expect(codexPlaintextAuthHeaders({ Authorization: 'Bearer xyz' })).toEqual({
+      bearer: ['Authorization'],
+      other: [],
+    });
+    expect(codexPlaintextAuthHeaders({ Authorization: 'Basic dXNlcjpwdw==' })).toEqual({
+      bearer: [],
+      other: ['Authorization'],
+    });
+    expect(codexPlaintextAuthHeaders({ Authorization: 'bare-token' })).toEqual({
+      bearer: [],
+      other: ['Authorization'],
+    });
+    expect(codexPlaintextAuthHeaders({ authorization: 'Bearer ${T}' })).toEqual({
+      bearer: [],
+      other: [],
+    });
+    expect(codexPlaintextAuthHeaders({ Authorization: '${T}' })).toEqual({
+      bearer: [],
+      other: [],
+    });
+    expect(codexPlaintextAuthHeaders({ 'X-Token': 'xyz' })).toEqual({ bearer: [], other: [] });
   });
 });
 

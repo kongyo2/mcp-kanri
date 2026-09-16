@@ -129,8 +129,25 @@ describe('removal', () => {
     expect(document.activeElement).not.toBe(trigger);
 
     await user.keyboard('{Escape}');
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
     expect(ports.focusCalls).toEqual(['capture', 'restore']);
+  });
+
+  it('falls back to a surviving control when the trigger is deleted with it', async () => {
+    const { user } = await mount();
+    await user.click(screen.getByRole('button', { name: /alpha/ }));
+
+    const trigger = await screen.findByRole('button', { name: 'Delete' });
+    await user.click(trigger);
+    await user.click((await screen.findByRole('dialog')).querySelectorAll('button')[0]!);
+    await screen.findByText('Removed "alpha"');
+
+    expect(trigger.isConnected).toBe(false);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: '＋ New server' }));
+    });
   });
 
   it('lets the scheduled timer clear the toast', async () => {

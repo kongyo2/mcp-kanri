@@ -23,7 +23,22 @@ export interface FocusAnchor {
   restore: () => void;
 }
 
-export function createFocusAnchor(doc: Document): FocusAnchor {
+export const FOCUS_FALLBACK_ATTRIBUTE = 'data-focus-fallback';
+
+export function afterNextPaint(fn: () => void): void {
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      fn();
+    });
+    return;
+  }
+  setTimeout(fn, 0);
+}
+
+export function createFocusAnchor(
+  doc: Document,
+  schedule: (fn: () => void) => void = afterNextPaint,
+): FocusAnchor {
   let anchor: HTMLElement | null = null;
   return {
     capture: () => {
@@ -33,7 +48,15 @@ export function createFocusAnchor(doc: Document): FocusAnchor {
     restore: () => {
       const target = anchor;
       anchor = null;
-      if (target !== null && target.isConnected) target.focus();
+      if (target === null) return;
+      schedule(() => {
+        if (target.isConnected) {
+          target.focus();
+          return;
+        }
+        const fallback = doc.querySelector(`[${FOCUS_FALLBACK_ATTRIBUTE}]`);
+        if (fallback instanceof HTMLElement) fallback.focus();
+      });
     },
   };
 }

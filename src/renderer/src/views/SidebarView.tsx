@@ -16,6 +16,7 @@ export function SidebarView({ vm }: Props): JSX.Element {
         <button
           type="button"
           className="btn btn-primary btn-small"
+          data-focus-fallback=""
           onClick={() => {
             emit({ scope: 'local', type: 'action/create' });
           }}

@@ -390,6 +390,14 @@ describe('toCodexCli', () => {
     expect(noteBody(out)).toContain('without expanding them');
   });
 
+  it('warns about a ${VAR:-default} env value, which Codex never expands', () => {
+    const envRef: McpServer = { ...stdioBase, env: { TOKEN: '${TOKEN:-fallback}' } };
+    const out = toCodexCli(envRef);
+    expect(firstLine(out)).toContain("--env 'TOKEN=${TOKEN:-fallback}'");
+    expect(noteBody(out)).toContain('"TOKEN"');
+    expect(noteBody(out)).toContain('carries a default');
+  });
+
   it('never tells the user to rename a key the server expects', () => {
     const envRef: McpServer = { ...stdioBase, env: { API_KEY: '${MY_TOKEN}' } };
     const note = noteBody(toCodexCli(envRef));
@@ -470,6 +478,12 @@ describe('toCodexToml', () => {
     expect(text).toContain("[projects.'<absolute project path>']");
     expect(text).not.toContain('[projects."<absolute project path>"]');
     expect(text).toContain('TOML literal string');
+  });
+
+  it('covers the apostrophe path, which cannot be a TOML literal string', () => {
+    const text = toCodexToml({ ...stdioBase, scope: 'project' });
+    expect(text).toContain("contains `'` can it not be a literal string");
+    expect(text).toContain('double every `\\`');
   });
 
   it('adds the shared-checkout caveat for local scope', () => {
@@ -592,6 +606,26 @@ describe('codex helpers', () => {
       env: { OTHER: '${RENAMED}', PLAIN: 'literal' },
       envVars: ['SAME'],
       unexpanded: ['OTHER'],
+    });
+  });
+
+  it('treats ${VAR:-default} and embedded refs as unexpandable, not as plain literals', () => {
+    expect(
+      partitionCodexStdioEnv({
+        A: '${TOKEN:-fallback}',
+        B: 'prefix-${TOKEN}',
+        C: '${TOKEN}-suffix',
+        D: 'no refs here',
+      }),
+    ).toEqual({
+      env: {
+        A: '${TOKEN:-fallback}',
+        B: 'prefix-${TOKEN}',
+        C: '${TOKEN}-suffix',
+        D: 'no refs here',
+      },
+      envVars: [],
+      unexpanded: ['A', 'B', 'C'],
     });
   });
 

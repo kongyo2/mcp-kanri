@@ -210,7 +210,7 @@ const ja = {
     '#     また Authorization が設定されたサーバは Bearer 認証済みとして扱われ、`codex mcp login` の OAuth フローは実行されません。',
 
   'converters.codex.envUnexpanded.line1':
-    '# 注: 次の env は値が `${VAR}` 形式ですが、キー名と変数名が異なるため `env_vars` に振り替えられません: {keys}',
+    '# 注: 次の env は `env_vars` に振り替えられない `${...}` 参照を含んでいます (キー名と変数名が違う、既定値や前後の文字が付いている、など): {keys}',
   'converters.codex.envUnexpanded.line2':
     '#     Codex は `env` の値を展開せずそのまま渡すので、実際の値をここに書いてください。',
   'converters.codex.envUnexpanded.line3':
@@ -224,6 +224,8 @@ const ja = {
     '#     [projects.\'<プロジェクトの絶対パス>\'] に trust_level = "trusted" がある場合のみ読み込まれます。',
   'converters.codexToml.projectTrust.line3':
     '#     キーはシングルクォート (TOML リテラル文字列) にしてください。ダブルクォートだと Windows パスの `\\Users` などがエスケープ扱いになり、config.toml 全体が読み込めなくなります。',
+  'converters.codexToml.projectTrust.line4':
+    '#     パスに `\'` が含まれる場合だけはリテラル文字列にできないので、ダブルクォートにして `\\` を `\\\\` に置き換えてください (例: "C:\\\\Users\\\\O\'Brien\\\\repo")。',
   'converters.codexToml.envVars.line1':
     '# 注: 次の env は値が同名の `${VAR}` 参照だったため、`env_vars` に振り替えました: {keys}',
   'converters.codexToml.envVars.line2':
@@ -437,7 +439,7 @@ const en: Record<MessageKey, string> = {
     '#       A server with an Authorization header also counts as bearer-authenticated, so `codex mcp login` never starts the OAuth flow.',
 
   'converters.codex.envUnexpanded.line1':
-    '# Note: these env values look like `${VAR}` but the key and the variable name differ, so `env_vars` cannot express them: {keys}',
+    '# Note: these env values hold a `${...}` reference that `env_vars` cannot express (the key and the variable differ, or the reference carries a default or surrounding text): {keys}',
   'converters.codex.envUnexpanded.line2':
     '#       Codex passes `env` values through without expanding them, so write the real value here.',
   'converters.codex.envUnexpanded.line3':
@@ -452,6 +454,8 @@ const en: Record<MessageKey, string> = {
     '#       trust_level = "trusted" under [projects.\'<absolute project path>\'].',
   'converters.codexToml.projectTrust.line3':
     '#       Keep the single quotes (a TOML literal string): in double quotes a Windows path like `\\Users` is read as an escape and the whole config.toml stops loading.',
+  'converters.codexToml.projectTrust.line4':
+    '#       Only when the path itself contains `\'` can it not be a literal string — then use double quotes and double every `\\` (e.g. "C:\\\\Users\\\\O\'Brien\\\\repo").',
   'converters.codexToml.envVars.line1':
     '# Note: these env values were `${VAR}` references naming the same key, so they moved to `env_vars`: {keys}',
   'converters.codexToml.envVars.line2':

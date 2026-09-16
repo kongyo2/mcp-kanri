@@ -96,7 +96,9 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     注記します (信頼されていないプロジェクト層は読み込まれません)。パスは
     シングルクォート (TOML リテラル文字列) で示します。ダブルクォートだと
     Windows パスの `\Users` などがエスケープ扱いになり `config.toml` 全体が
-    読めなくなるためです。貼り付け先としては `~/.codex` ではなく
+    読めなくなるためです。パスに `'` が含まれる場合はリテラル文字列にできない
+    ので、その場合だけダブルクォートと `\\` を使うよう併記します。
+    貼り付け先としては `~/.codex` ではなく
     `$CODEX_HOME` を案内するので、`CODEX_HOME` を変更している環境でも
     Codex が実際に読むファイルを指します。
   - scope が `project` / `local` のときは「Codex CLI」タブの
@@ -115,6 +117,9 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     (Codex は既定の環境変数しか子プロセスに渡さないため、`env_vars` が
     引き継ぎ手段になります)。キー名と変数名が違って振り替えられない場合は
     そのまま出力し、展開されないことを CLI / TOML の両タブで注記します。
+    `${VAR:-default}` や `prefix-${VAR}` のように `env_vars` へ振り替えられない
+    形の参照も同じ注記の対象です (Codex は展開しないため、そのままの文字列が
+    サーバに渡ります)。
   - `codex mcp add --env KEY=VALUE` はキー側だけを trim するため、前後に空白の
     ある env キーには注記を出します。`=` を含むキーや空のキーはプロセスの環境
     (`NAME=VALUE` 形式) でそもそも表現できないので、CLI / TOML の両タブで
@@ -258,7 +263,9 @@ another format on the fly.
     untrusted project layer is skipped entirely. The path is shown
     single-quoted (a TOML literal string) because in double quotes a Windows
     path like `\Users` is read as an escape and the whole `config.toml` stops
-    loading. Paste targets name `$CODEX_HOME` rather than a hard-coded
+    loading. A path containing `'` cannot be a literal string at all, so the
+    note covers the double-quoted, `\\`-escaped form for that one case.
+    Paste targets name `$CODEX_HOME` rather than a hard-coded
     `~/.codex`, so they still point at the file Codex actually reads when
     `CODEX_HOME` is customised.
   - For the `project` / `local` scopes the `codex mcp add` line in the "Codex
@@ -278,6 +285,9 @@ another format on the fly.
     environment variables to stdio children, and `env_vars` is what forwards
     the rest.) When the key and the variable name differ the entry is kept
     as-is, and both the CLI and TOML tabs note that it will not be expanded.
+    References that `env_vars` cannot express at all — `${VAR:-default}`,
+    `prefix-${VAR}` and friends — get the same note, since Codex hands the
+    literal text to the server.
   - `codex mcp add --env KEY=VALUE` trims the key only, so env keys with
     surrounding whitespace get a note. A key containing `=` or an empty key
     cannot be represented in a process environment (a list of `NAME=VALUE`

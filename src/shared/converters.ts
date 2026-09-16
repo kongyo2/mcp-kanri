@@ -296,12 +296,11 @@ export function partitionCodexStdioEnv(env: Record<string, string>): CodexStdioE
   const envVars: string[] = [];
   const unexpanded: string[] = [];
   for (const [key, value] of Object.entries(env)) {
-    const name = ENV_REF.exec(value)?.[1];
-    if (name !== undefined && name === key) {
+    if (ENV_REF.exec(value)?.[1] === key) {
       envVars.push(key);
       continue;
     }
-    if (name !== undefined) unexpanded.push(key);
+    if (ENV_REF_ANYWHERE.test(value)) unexpanded.push(key);
     literalEnv[key] = value;
   }
   return { env: literalEnv, envVars, unexpanded };
@@ -602,6 +601,7 @@ export function mcpRemoteBridge(
 }
 
 const ENV_REF = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+const ENV_REF_ANYWHERE = /\$\{[^}]*\}/;
 const BEARER_ENV_REF = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
 const BEARER_SCHEME = /^Bearer\s/i;
 
@@ -772,6 +772,7 @@ function codexTomlTrailingNotes(server: McpServer, locale: Locale): string[] {
       translate(locale, 'converters.codexToml.projectTrust.line1'),
       translate(locale, 'converters.codexToml.projectTrust.line2'),
       translate(locale, 'converters.codexToml.projectTrust.line3'),
+      translate(locale, 'converters.codexToml.projectTrust.line4'),
     );
   }
   if (server.scope === 'local') {

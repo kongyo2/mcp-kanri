@@ -91,22 +91,29 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `$CODEX_HOME/config.toml` (既定 `~/.codex/config.toml`) へ書き込みます。
     一方 Codex の設定はプロジェクト層 (`.codex/config.toml`) も読むため、
     scope が `project` / `local` の場合は「Codex config.toml」タブを
-    プロジェクト直下向けに出力し、`~/.codex/config.toml` の
+    プロジェクト直下向けに出力し、`$CODEX_HOME/config.toml` の
     `[projects."<絶対パス>"]` に `trust_level = "trusted"` が必要なことを
-    注記します (信頼されていないプロジェクト層は読み込まれません)。
+    注記します (信頼されていないプロジェクト層は読み込まれません)。貼り付け先
+    としては `~/.codex` ではなく `$CODEX_HOME` を案内するので、`CODEX_HOME`
+    を変更している環境でも Codex が実際に読むファイルを指します。
   - Codex には `local` (自分だけ) に相当する層がないため、`local` は
     `project` と同じ `.codex/config.toml` として出力し、リポジトリで共有される
-    点を注記します。
+    点を注記します。`.gitignore` は未追跡のファイルにしか効かず、既に
+    コミット済みの `.codex/config.toml` は隠せないため、秘密情報は scope を
+    `user` にするよう案内します。
   - Codex は stdio の `env` の値を展開しないので、`KEY = "${KEY}"` のように
     キー名と同じ変数を参照している env は `env_vars = ["KEY"]` に振り替えます
     (Codex は既定の環境変数しか子プロセスに渡さないため、`env_vars` が
     引き継ぎ手段になります)。キー名と変数名が違って振り替えられない場合は
-    そのまま出力し、展開されないことを注記します。
+    そのまま出力し、展開されないことを CLI / TOML の両タブで注記します。
   - `codex mcp add --env KEY=VALUE` はキー側だけを trim し、`=` を含むキーは
     最初の `=` で分割するため、そうした env キーがある登録には注記を出します。
-  - `Authorization` にトークンを直接書いた登録は、`config.toml` に平文で
-    残ること、Codex が Bearer 認証済みとみなして `codex mcp login` の OAuth
-    フローを行わないことを注記します。
+  - `Authorization` に値を直接書いた登録は、`config.toml` に平文で残ること、
+    Codex が Bearer 認証済みとみなして `codex mcp login` の OAuth フローを
+    行わないことを注記します。Bearer トークンには `Bearer ${VAR}` 形式を、
+    Basic / Digest など Bearer 以外の方式には値全体を環境変数に移して
+    `Authorization` = `${VAR}` (= `env_http_headers`) を案内し、認証方式を
+    壊す書き換えを勧めないようにしています。
   - Google Antigravity はリモート URL のキー名が `serverUrl` (camelCase)
     で他のクライアントと異なるため、自動で書き換えます。SSE はネイティブ
     未対応なので `npx -y mcp-remote` で stdio に橋渡しします
@@ -230,25 +237,33 @@ another format on the fly.
     `$CODEX_HOME/config.toml` (`~/.codex/config.toml` by default). Codex's
     config loader does read a project layer (`.codex/config.toml`), so for the
     `project` / `local` scopes the "Codex config.toml" tab targets the project
-    root and notes that `~/.codex/config.toml` needs
+    root and notes that `$CODEX_HOME/config.toml` needs
     `trust_level = "trusted"` under `[projects."<absolute path>"]` — an
-    untrusted project layer is skipped entirely.
+    untrusted project layer is skipped entirely. Paste targets name
+    `$CODEX_HOME` rather than a hard-coded `~/.codex`, so they still point at
+    the file Codex actually reads when `CODEX_HOME` is customised.
   - Codex has no `local` (private to you) layer, so `local` is emitted as the
     same `.codex/config.toml` as `project`, with a note that the file is
-    shared with everyone who checks out the repository.
+    shared with everyone who checks out the repository. Since `.gitignore`
+    only helps while a file is untracked and cannot hide an already-committed
+    `.codex/config.toml`, the note points at the `user` scope for secrets.
   - Codex does not expand `env` values for stdio servers, so an entry like
     `KEY = "${KEY}"` — one that references the variable of the same name — is
     moved to `env_vars = ["KEY"]`. (Codex passes only a fixed set of
     environment variables to stdio children, and `env_vars` is what forwards
     the rest.) When the key and the variable name differ the entry is kept
-    as-is with a note that it will not be expanded.
+    as-is, and both the CLI and TOML tabs note that it will not be expanded.
   - `codex mcp add --env KEY=VALUE` trims the key only and splits a key
     containing `=` at the first `=`, so registrations with such env keys get a
     note.
-  - A registration that writes the token straight into `Authorization` is
+  - A registration that writes the credential straight into `Authorization` is
     flagged: it is stored in plain text in `config.toml`, and Codex treats the
     server as already bearer-authenticated, so `codex mcp login` never starts
-    the OAuth flow.
+    the OAuth flow. The remediation follows the scheme — `Bearer ${VAR}` for a
+    Bearer token, and for Basic / Digest and friends, moving the whole value
+    into an environment variable referenced as `Authorization` = `${VAR}`
+    (which becomes `env_http_headers`) rather than a rewrite that would break
+    the scheme.
   - Google Antigravity uses `serverUrl` (camelCase) for remote URLs, which
     differs from every other client; the converter rewrites the key
     automatically. SSE is not supported natively, so SSE entries are

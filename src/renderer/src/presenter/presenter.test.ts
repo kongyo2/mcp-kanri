@@ -101,7 +101,7 @@ describe('main pane', () => {
     expect(main.detail.meta[2]?.label).toBe('env: 1 entries');
     expect(main.detail.description).toBe('browser tooling');
     expect(main.detail.subtitle).toBe(
-      'TOML excerpt for `~/.codex/config.toml` (user) or `.codex/config.toml` at the project root (project; requires trust)',
+      'TOML excerpt for `$CODEX_HOME/config.toml` (user; `~/.codex/config.toml` by default) or `.codex/config.toml` at the project root (project; requires trust)',
     );
     expect(main.detail.code.text).toContain('[mcp_servers.chrome-devtools]');
     expect(main.detail.code.copyLabel).toBe('Copy');

@@ -247,7 +247,8 @@ export function toClaudeCli(server: McpServer, locale: Locale = 'en'): string {
 
 export type CodexConfigTarget = 'user' | 'project';
 
-export const CODEX_USER_CONFIG_PATH = '~/.codex/config.toml';
+export const CODEX_USER_CONFIG_PATH = '$CODEX_HOME/config.toml';
+export const CODEX_USER_CONFIG_DEFAULT_PATH = '~/.codex/config.toml';
 export const CODEX_PROJECT_CONFIG_PATH = '.codex/config.toml';
 
 export function toCodexConfigTarget(scope: Scope): CodexConfigTarget {
@@ -306,14 +307,23 @@ export function partitionCodexStdioEnv(env: Record<string, string>): CodexStdioE
   return { env: literalEnv, envVars, unexpanded };
 }
 
-export function codexPlaintextAuthHeaders(headers: Record<string, string>): string[] {
-  const fields: string[] = [];
+export interface CodexPlaintextAuthPartition {
+  readonly bearer: readonly string[];
+  readonly other: readonly string[];
+}
+
+export function codexPlaintextAuthHeaders(
+  headers: Record<string, string>,
+): CodexPlaintextAuthPartition {
+  const bearer: string[] = [];
+  const other: string[] = [];
   for (const [key, value] of Object.entries(headers)) {
     if (key.toLowerCase() !== 'authorization') continue;
     if (BEARER_ENV_REF.test(value) || ENV_REF.test(value)) continue;
-    fields.push(key);
+    if (BEARER_SCHEME.test(value)) bearer.push(key);
+    else other.push(key);
   }
-  return fields;
+  return { bearer, other };
 }
 
 function codexScopeNotes(server: McpServer, locale: Locale): string[] {
@@ -352,12 +362,15 @@ function codexPlaintextAuthNotes(
   scope: Scope,
   locale: Locale,
 ): string[] {
-  if (codexPlaintextAuthHeaders(headers).length === 0) return [];
-  return [
-    translate(locale, 'converters.codex.plainBearer.line1', { path: codexConfigPath(scope) }),
-    translate(locale, 'converters.codex.plainBearer.line2'),
-    translate(locale, 'converters.codex.plainBearer.line3'),
+  const { bearer, other } = codexPlaintextAuthHeaders(headers);
+  if (bearer.length === 0 && other.length === 0) return [];
+  const notes: string[] = [
+    translate(locale, 'converters.codex.plainAuth.line1', { path: codexConfigPath(scope) }),
   ];
+  if (bearer.length > 0) notes.push(translate(locale, 'converters.codex.plainAuth.bearer'));
+  if (other.length > 0) notes.push(translate(locale, 'converters.codex.plainAuth.other'));
+  notes.push(translate(locale, 'converters.codex.plainAuth.noOauth'));
+  return notes;
 }
 
 function codexCliStdioEnvNotes(
@@ -380,14 +393,23 @@ function codexCliStdioEnvNotes(
       translate(locale, 'converters.codexCli.envKeyMalformed.line2'),
     );
   }
-  const { envVars } = partitionCodexStdioEnv(server.env);
+  const { envVars, unexpanded } = partitionCodexStdioEnv(server.env);
   if (envVars.length > 0) {
     notes.push(
       translate(locale, 'converters.codexCli.envRef.line1', { keys: joinForNote(envVars) }),
       translate(locale, 'converters.codexCli.envRef.line2'),
     );
   }
+  notes.push(...codexEnvUnexpandedNotes(unexpanded, locale));
   return notes;
+}
+
+function codexEnvUnexpandedNotes(unexpanded: readonly string[], locale: Locale): string[] {
+  if (unexpanded.length === 0) return [];
+  return [
+    translate(locale, 'converters.codex.envUnexpanded.line1', { keys: joinForNote(unexpanded) }),
+    translate(locale, 'converters.codex.envUnexpanded.line2'),
+  ];
 }
 
 export function toCodexCli(server: McpServer, locale: Locale = 'en'): string {
@@ -560,6 +582,7 @@ export function mcpRemoteBridge(
 
 const ENV_REF = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
 const BEARER_ENV_REF = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+const BEARER_SCHEME = /^Bearer\s/i;
 
 function pickBearerTokenEnvVar(headers: Record<string, string>): string | null {
   for (const [k, v] of Object.entries(headers)) {
@@ -709,7 +732,10 @@ function tomlInlineTable(record: Record<string, string>): string {
 
 function codexTomlTargetNote(scope: Scope, locale: Locale): string {
   if (toCodexConfigTarget(scope) === 'user') {
-    return translate(locale, 'converters.codexToml.target.user', { path: CODEX_USER_CONFIG_PATH });
+    return translate(locale, 'converters.codexToml.target.user', {
+      path: CODEX_USER_CONFIG_PATH,
+      defaultPath: CODEX_USER_CONFIG_DEFAULT_PATH,
+    });
   }
   return translate(locale, 'converters.codexToml.target.project', {
     path: CODEX_PROJECT_CONFIG_PATH,
@@ -741,14 +767,7 @@ function codexTomlTrailingNotes(server: McpServer, locale: Locale): string[] {
         translate(locale, 'converters.codexToml.envVars.line2'),
       );
     }
-    if (unexpanded.length > 0) {
-      notes.push(
-        translate(locale, 'converters.codexToml.envUnexpanded.line1', {
-          keys: joinForNote(unexpanded),
-        }),
-        translate(locale, 'converters.codexToml.envUnexpanded.line2'),
-      );
-    }
+    notes.push(...codexEnvUnexpandedNotes(unexpanded, locale));
     return notes;
   }
 

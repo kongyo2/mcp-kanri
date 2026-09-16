@@ -55,7 +55,7 @@ const ja = {
     '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`。`workspace` / `claude-in-chrome` / `computer-use` は Claude Code の予約名です。Grok は英字か `_` で始まり、末尾が `_` でなく `__` を含まない名前のみツールを登録します',
   'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (`codex mcp add` に scope 相当のオプションはなく常に `~/.codex/config.toml` へ書き込みますが、"Codex config.toml" タブは project / local ならプロジェクト直下の `.codex/config.toml` 向けに出力します。Grok は user / project のみで local は project に丸めます)',
+    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (`codex mcp add` に scope 相当のオプションはなく常に `$CODEX_HOME/config.toml` へ書き込みますが、"Codex config.toml" タブは project / local ならプロジェクト直下の `.codex/config.toml` 向けに出力します。Grok は user / project のみで local は project に丸めます)',
   'form.scope.local': 'local (現プロジェクトのみ)',
   'form.scope.project': 'project (.mcp.json として共有)',
   'form.scope.user': 'user (全プロジェクト共通)',
@@ -115,7 +115,7 @@ const ja = {
   'format.vscode-json.subtitle': 'トップレベルキーは `servers`',
   'format.codex-toml.title': 'Codex config.toml',
   'format.codex-toml.subtitle':
-    '`~/.codex/config.toml` (user) / プロジェクト直下の `.codex/config.toml` (project・要 trust) 用 TOML 抜粋',
+    '`$CODEX_HOME/config.toml` (user・既定 `~/.codex/config.toml`) / プロジェクト直下の `.codex/config.toml` (project・要 trust) 用 TOML 抜粋',
   'format.grok-toml.title': 'Grok config.toml',
   'format.grok-toml.subtitle':
     '`%USERPROFILE%\\.grok\\config.toml` (user) / `.grok\\config.toml` (project) 用 TOML 抜粋 (HTTP / SSE はネイティブ対応でブリッジ不要)',
@@ -181,11 +181,11 @@ const ja = {
   'converters.codex.noScope.line2':
     '#     scope="{scope}" を反映するには、"Codex config.toml" タブの内容をプロジェクト直下の .codex/config.toml に貼り付けてください。',
   'converters.codex.noScope.line3':
-    '#     プロジェクト層は ~/.codex/config.toml の [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
+    '#     プロジェクト層は $CODEX_HOME/config.toml の [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
   'converters.codex.localScope.line1':
     '# 注: Codex には local (自分だけ) に相当する層がなく、.codex/config.toml はリポジトリで共有されます。',
   'converters.codex.localScope.line2':
-    '#     共有したくない場合は scope を user にするか、.codex/config.toml を .gitignore に追加してください。',
+    '#     秘密情報を含む場合は scope を user にしてください。.gitignore は未追跡のファイルにしか効かず、既にコミット済みの .codex/config.toml は隠せません。',
   'converters.codex.sseBridge.line1':
     '# 注: Codex のトランスポートは stdio と streamable_http (url) の 2 つだけで、SSE はサポートされません。',
   'converters.codex.sseBridge.line2':
@@ -196,27 +196,30 @@ const ja = {
     '# 注: SSE 用のヘッダは mcp-remote の引数として config.toml に平文で残り、Codex は `${VAR}` を展開しません。',
   'converters.codex.sseHeaders.line2':
     '#     秘密情報を含む場合は、Streamable HTTP + `bearer_token_env_var` / `env_http_headers` への切り替えを検討してください。',
-  'converters.codex.plainBearer.line1':
-    '# 注: Authorization ヘッダにトークンを直接書いているため、{path} に平文で保存されます。',
-  'converters.codex.plainBearer.line2':
-    '#     値を `Bearer ${VAR}` 形式にすると `bearer_token_env_var` / `--bearer-token-env-var` へ変換され、実際の値は環境変数から読まれます。',
-  'converters.codex.plainBearer.line3':
+  'converters.codex.plainAuth.line1':
+    '# 注: Authorization ヘッダに値を直接書いているため、{path} に平文で保存されます。',
+  'converters.codex.plainAuth.bearer':
+    '#     Bearer トークンは `Bearer ${VAR}` 形式にすると `bearer_token_env_var` / `--bearer-token-env-var` へ変換され、実際の値は環境変数から読まれます。',
+  'converters.codex.plainAuth.other':
+    '#     Bearer 以外の認証方式 (Basic / Digest など) は方式ごと壊れるので `Bearer` に書き換えず、値全体を環境変数に移して `Authorization` = `${VAR}` と書いてください (`env_http_headers` に変換されます)。',
+  'converters.codex.plainAuth.noOauth':
     '#     また Authorization が設定されたサーバは Bearer 認証済みとして扱われ、`codex mcp login` の OAuth フローは実行されません。',
 
-  'converters.codexToml.target.user': '# 貼り付け先: {path} ($CODEX_HOME/config.toml)',
+  'converters.codex.envUnexpanded.line1':
+    '# 注: 次の env は値が `${VAR}` 形式ですが、キー名と変数名が異なるため `env_vars` に振り替えられません: {keys}',
+  'converters.codex.envUnexpanded.line2':
+    '#     Codex は `env` の値を展開せずそのまま渡すので、実際の値を書くかキー名を変数名に合わせてください。',
+
+  'converters.codexToml.target.user': '# 貼り付け先: {path} (既定 {defaultPath})',
   'converters.codexToml.target.project': '# 貼り付け先: プロジェクト直下の {path} (scope: {scope})',
   'converters.codexToml.projectTrust.line1':
-    '# 注: プロジェクト層 (.codex/config.toml) は、~/.codex/config.toml の',
+    '# 注: プロジェクト層 (.codex/config.toml) は、$CODEX_HOME/config.toml の',
   'converters.codexToml.projectTrust.line2':
     '#     [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
   'converters.codexToml.envVars.line1':
     '# 注: 次の env は値が同名の `${VAR}` 参照だったため、`env_vars` に振り替えました: {keys}',
   'converters.codexToml.envVars.line2':
     '#     Codex は stdio の子プロセスへ既定の環境変数しか渡さないため、`env_vars` で明示した変数だけが引き継がれます。',
-  'converters.codexToml.envUnexpanded.line1':
-    '# 注: 次の env は値が `${VAR}` 形式ですが、キー名と変数名が異なるため `env_vars` に振り替えられません: {keys}',
-  'converters.codexToml.envUnexpanded.line2':
-    '#     Codex は `env` の値を展開しないので、実際の値を書くかキー名を変数名に合わせてください。',
 
   'storage.error.readFailed': 'MCP 設定ストア ({path}) の読込に失敗しました: {message}',
   'storage.error.jsonParse':
@@ -271,7 +274,7 @@ const en: Record<MessageKey, string> = {
     'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`. `workspace` / `claude-in-chrome` / `computer-use` are reserved by Claude Code. Grok only registers tools for names that start with a letter or `_`, do not end with `_`, and contain no `__`',
   'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (`codex mcp add` has no scope option and always writes `~/.codex/config.toml`, but the "Codex config.toml" tab targets `.codex/config.toml` at the project root for project / local. Grok has only user / project, so local is rounded to project)',
+    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (`codex mcp add` has no scope option and always writes `$CODEX_HOME/config.toml`, but the "Codex config.toml" tab targets `.codex/config.toml` at the project root for project / local. Grok has only user / project, so local is rounded to project)',
   'form.scope.local': 'local (current project only)',
   'form.scope.project': 'project (shared as .mcp.json)',
   'form.scope.user': 'user (shared across all projects)',
@@ -331,7 +334,7 @@ const en: Record<MessageKey, string> = {
   'format.vscode-json.subtitle': 'Top-level key is `servers`',
   'format.codex-toml.title': 'Codex config.toml',
   'format.codex-toml.subtitle':
-    'TOML excerpt for `~/.codex/config.toml` (user) or `.codex/config.toml` at the project root (project; requires trust)',
+    'TOML excerpt for `$CODEX_HOME/config.toml` (user; `~/.codex/config.toml` by default) or `.codex/config.toml` at the project root (project; requires trust)',
   'format.grok-toml.title': 'Grok config.toml',
   'format.grok-toml.subtitle':
     'TOML excerpt for `%USERPROFILE%\\.grok\\config.toml` (user) or `.grok\\config.toml` (project); HTTP / SSE are native, so no bridge is needed',
@@ -397,11 +400,11 @@ const en: Record<MessageKey, string> = {
   'converters.codex.noScope.line2':
     '#       To honor scope="{scope}", paste the "Codex config.toml" tab into .codex/config.toml at the project root instead.',
   'converters.codex.noScope.line3':
-    '#       The project layer is only loaded when ~/.codex/config.toml has trust_level = "trusted" under [projects."<absolute project path>"].',
+    '#       The project layer is only loaded when $CODEX_HOME/config.toml has trust_level = "trusted" under [projects."<absolute project path>"].',
   'converters.codex.localScope.line1':
     '# Note: Codex has no local (private to you) layer, so .codex/config.toml is shared with everyone who checks out the repository.',
   'converters.codex.localScope.line2':
-    '#       Switch the scope to user, or add .codex/config.toml to .gitignore, if you do not want to share it.',
+    '#       Use the user scope for anything private: .gitignore only helps while the file is untracked, and never hides a .codex/config.toml that is already committed.',
   'converters.codex.sseBridge.line1':
     '# Note: Codex only supports the stdio and streamable_http (url) transports; there is no SSE transport.',
   'converters.codex.sseBridge.line2':
@@ -412,28 +415,31 @@ const en: Record<MessageKey, string> = {
     '# Note: SSE headers end up as mcp-remote arguments stored in plain text in config.toml, and Codex does not expand `${VAR}`.',
   'converters.codex.sseHeaders.line2':
     '#       For secrets, prefer Streamable HTTP with `bearer_token_env_var` / `env_http_headers`.',
-  'converters.codex.plainBearer.line1':
-    '# Note: the Authorization header holds the token itself, so it is stored in plain text in {path}.',
-  'converters.codex.plainBearer.line2':
-    '#       Writing it as `Bearer ${VAR}` maps it to `bearer_token_env_var` / `--bearer-token-env-var`, and the value is read from the environment.',
-  'converters.codex.plainBearer.line3':
+  'converters.codex.plainAuth.line1':
+    '# Note: the Authorization header holds the credential itself, so it is stored in plain text in {path}.',
+  'converters.codex.plainAuth.bearer':
+    '#       For a Bearer token, write it as `Bearer ${VAR}`: that maps to `bearer_token_env_var` / `--bearer-token-env-var` and the value is read from the environment.',
+  'converters.codex.plainAuth.other':
+    '#       Do not rewrite a non-Bearer scheme (Basic, Digest, ...) as `Bearer` — that breaks the scheme. Move the whole value into an environment variable and write `Authorization` = `${VAR}`, which maps to `env_http_headers`.',
+  'converters.codex.plainAuth.noOauth':
     '#       A server with an Authorization header also counts as bearer-authenticated, so `codex mcp login` never starts the OAuth flow.',
 
-  'converters.codexToml.target.user': '# Paste into: {path} ($CODEX_HOME/config.toml)',
+  'converters.codex.envUnexpanded.line1':
+    '# Note: these env values look like `${VAR}` but the key and the variable name differ, so `env_vars` cannot express them: {keys}',
+  'converters.codex.envUnexpanded.line2':
+    '#       Codex passes `env` values through without expanding them, so write the real value or rename the key to match the variable.',
+
+  'converters.codexToml.target.user': '# Paste into: {path} (default: {defaultPath})',
   'converters.codexToml.target.project':
     '# Paste into: {path} at the project root (scope: {scope})',
   'converters.codexToml.projectTrust.line1':
-    '# Note: the project layer (.codex/config.toml) is only loaded when ~/.codex/config.toml has',
+    '# Note: the project layer (.codex/config.toml) is only loaded when $CODEX_HOME/config.toml has',
   'converters.codexToml.projectTrust.line2':
     '#       trust_level = "trusted" under [projects."<absolute project path>"].',
   'converters.codexToml.envVars.line1':
     '# Note: these env values were `${VAR}` references naming the same key, so they moved to `env_vars`: {keys}',
   'converters.codexToml.envVars.line2':
     '#       Codex passes only a fixed set of environment variables to stdio servers, so `env_vars` is what forwards the rest.',
-  'converters.codexToml.envUnexpanded.line1':
-    '# Note: these env values look like `${VAR}` but the key and the variable name differ, so `env_vars` cannot express them: {keys}',
-  'converters.codexToml.envUnexpanded.line2':
-    '#       Codex does not expand `env` values, so write the real value or rename the key to match the variable.',
 
   'storage.error.readFailed': 'Failed to read MCP store ({path}): {message}',
   'storage.error.jsonParse':

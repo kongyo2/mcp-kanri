@@ -243,7 +243,7 @@ describe('toCodexCli', () => {
     const out = toCodexCli(customHeader);
     expect(firstLine(out)).toBe('codex mcp add notion --url https://mcp.notion.com/mcp');
     expect(noteBody(out)).toContain('http_headers');
-    expect(noteBody(out)).toContain('~/.codex/config.toml');
+    expect(noteBody(out)).toContain('$CODEX_HOME/config.toml');
   });
 
   it('warns that a literal Authorization token lands in config.toml in plain text', () => {
@@ -259,6 +259,25 @@ describe('toCodexCli', () => {
       headers: { Authorization: 'Bearer ${NOTION_TOKEN}' },
     };
     expect(toCodexCli(tokenServer)).not.toContain('plain text');
+  });
+
+  it('does not tell a non-Bearer scheme to become a Bearer token', () => {
+    const basicServer: McpServer = {
+      ...httpServer,
+      headers: { Authorization: 'Basic dXNlcjpwdw==' },
+    };
+    const note = noteBody(toCodexCli(basicServer));
+    expect(note).toContain('plain text');
+    expect(note).toContain('non-Bearer scheme');
+    expect(note).toContain('env_http_headers');
+    expect(note).not.toContain('bearer_token_env_var');
+  });
+
+  it('names the $CODEX_HOME config, not a hard-coded ~/.codex path, in header instructions', () => {
+    const customHeader: McpServer = { ...httpServer, headers: { 'X-Custom': 'foo' } };
+    const note = noteBody(toCodexCli(customHeader));
+    expect(note).toContain('$CODEX_HOME/config.toml');
+    expect(note).not.toContain('~/.codex/config.toml');
   });
 
   it('bridges SSE servers via npx mcp-remote (Codex has no native SSE support)', () => {
@@ -331,6 +350,14 @@ describe('toCodexCli', () => {
     expect(noteBody(out)).toContain('verbatim');
     expect(noteBody(out)).toContain('env_vars');
   });
+
+  it('warns about a ${VAR} env value whose key differs, which env_vars cannot express', () => {
+    const envRef: McpServer = { ...stdioBase, env: { API_KEY: '${MY_TOKEN}' } };
+    const out = toCodexCli(envRef);
+    expect(firstLine(out)).toContain("--env 'API_KEY=${MY_TOKEN}'");
+    expect(noteBody(out)).toContain('"API_KEY"');
+    expect(noteBody(out)).toContain('without expanding them');
+  });
 });
 
 describe('toMcpJson', () => {
@@ -389,9 +416,9 @@ describe('toCodexToml', () => {
     expect(text).toContain('args = ["-y", "chrome-devtools-mcp@latest"]');
   });
 
-  it('names the paste target for user scope', () => {
+  it('names $CODEX_HOME as the paste target for user scope, with ~/.codex as its default', () => {
     expect(firstLine(toCodexToml(stdioBase))).toBe(
-      '# Paste into: ~/.codex/config.toml ($CODEX_HOME/config.toml)',
+      '# Paste into: $CODEX_HOME/config.toml (default: ~/.codex/config.toml)',
     );
   });
 
@@ -435,7 +462,7 @@ describe('toCodexToml', () => {
     const text = toCodexToml(envRef);
     expect(text).toContain('env = { API_KEY = "${MY_TOKEN}" }');
     expect(text).not.toContain('env_vars =');
-    expect(text).toContain('does not expand `env` values');
+    expect(text).toContain('without expanding them');
   });
 
   it('emits literal Authorization headers in http_headers', () => {
@@ -506,7 +533,7 @@ describe('codex helpers', () => {
     expect(toCodexConfigTarget('user')).toBe('user');
     expect(toCodexConfigTarget('project')).toBe('project');
     expect(toCodexConfigTarget('local')).toBe('project');
-    expect(codexConfigPath('user')).toBe('~/.codex/config.toml');
+    expect(codexConfigPath('user')).toBe('$CODEX_HOME/config.toml');
     expect(codexConfigPath('local')).toBe('.codex/config.toml');
   });
 
@@ -527,11 +554,28 @@ describe('codex helpers', () => {
     });
   });
 
-  it('reports only Authorization headers that carry a literal token', () => {
-    expect(codexPlaintextAuthHeaders({ Authorization: 'Bearer xyz' })).toEqual(['Authorization']);
-    expect(codexPlaintextAuthHeaders({ authorization: 'Bearer ${T}' })).toEqual([]);
-    expect(codexPlaintextAuthHeaders({ Authorization: '${T}' })).toEqual([]);
-    expect(codexPlaintextAuthHeaders({ 'X-Token': 'xyz' })).toEqual([]);
+  it('splits literal Authorization values by scheme so the advice matches', () => {
+    expect(codexPlaintextAuthHeaders({ Authorization: 'Bearer xyz' })).toEqual({
+      bearer: ['Authorization'],
+      other: [],
+    });
+    expect(codexPlaintextAuthHeaders({ Authorization: 'Basic dXNlcjpwdw==' })).toEqual({
+      bearer: [],
+      other: ['Authorization'],
+    });
+    expect(codexPlaintextAuthHeaders({ Authorization: 'bare-token' })).toEqual({
+      bearer: [],
+      other: ['Authorization'],
+    });
+    expect(codexPlaintextAuthHeaders({ authorization: 'Bearer ${T}' })).toEqual({
+      bearer: [],
+      other: [],
+    });
+    expect(codexPlaintextAuthHeaders({ Authorization: '${T}' })).toEqual({
+      bearer: [],
+      other: [],
+    });
+    expect(codexPlaintextAuthHeaders({ 'X-Token': 'xyz' })).toEqual({ bearer: [], other: [] });
   });
 });
 

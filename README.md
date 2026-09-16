@@ -63,7 +63,8 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   - `Claude Desktop` — `%APPDATA%\Claude\claude_desktop_config.json`
   - `mcpServers JSON` — Cursor / Windsurf などの共通形式
   - `VS Code mcp.json` — トップレベルキーが `servers` の VS Code 形式
-  - `Codex config.toml` — `~/.codex/config.toml` 用の TOML 抜粋
+  - `Codex config.toml` — `~/.codex/config.toml` (user) / プロジェクト直下の
+    `.codex/config.toml` (project・local) 用の TOML 抜粋
   - `Grok config.toml` — `%USERPROFILE%\.grok\config.toml` (user) /
     `.grok\config.toml` (project) 用の `[mcp_servers.<name>]` 抜粋
   - `Antigravity mcp_config.json` — Google Antigravity Editor 用
@@ -78,11 +79,34 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `uvx mcp-proxy` で stdio に変換します。Streamable HTTP の場合は
     `--transport streamablehttp` を明示し、複数ヘッダは `--headers K V` を
     繰り返す形式で正しく出力します。
-  - Codex CLI は SSE をネイティブ未対応のため、`npx -y mcp-remote` で
-    stdio に橋渡しした形式で出力。
+  - Codex のトランスポートは `stdio` と `streamable_http` の 2 つだけで SSE を
+    持たないため、SSE 登録は `npx -y mcp-remote` で stdio に橋渡しし、その旨を
+    コメントで注記します。
   - Gemini CLI / Qwen Code は `--` セパレータが必要なケースを正しく挿入。
   - `Authorization: Bearer ${ENV_VAR}` 形式のヘッダは Codex の
-    `bearer_token_env_var` / `--bearer-token-env-var` に自動変換。
+    `bearer_token_env_var` / `--bearer-token-env-var` に自動変換。それ以外の
+    `${ENV_VAR}` ヘッダは `env_http_headers`、リテラル値は `http_headers` に
+    振り分けます。
+  - `codex mcp add` に scope 相当のオプションはなく、常に
+    `$CODEX_HOME/config.toml` (既定 `~/.codex/config.toml`) へ書き込みます。
+    一方 Codex の設定はプロジェクト層 (`.codex/config.toml`) も読むため、
+    scope が `project` / `local` の場合は「Codex config.toml」タブを
+    プロジェクト直下向けに出力し、`~/.codex/config.toml` の
+    `[projects."<絶対パス>"]` に `trust_level = "trusted"` が必要なことを
+    注記します (信頼されていないプロジェクト層は読み込まれません)。
+  - Codex には `local` (自分だけ) に相当する層がないため、`local` は
+    `project` と同じ `.codex/config.toml` として出力し、リポジトリで共有される
+    点を注記します。
+  - Codex は stdio の `env` の値を展開しないので、`KEY = "${KEY}"` のように
+    キー名と同じ変数を参照している env は `env_vars = ["KEY"]` に振り替えます
+    (Codex は既定の環境変数しか子プロセスに渡さないため、`env_vars` が
+    引き継ぎ手段になります)。キー名と変数名が違って振り替えられない場合は
+    そのまま出力し、展開されないことを注記します。
+  - `codex mcp add --env KEY=VALUE` はキー側だけを trim し、`=` を含むキーは
+    最初の `=` で分割するため、そうした env キーがある登録には注記を出します。
+  - `Authorization` にトークンを直接書いた登録は、`config.toml` に平文で
+    残ること、Codex が Bearer 認証済みとみなして `codex mcp login` の OAuth
+    フローを行わないことを注記します。
   - Google Antigravity はリモート URL のキー名が `serverUrl` (camelCase)
     で他のクライアントと異なるため、自動で書き換えます。SSE はネイティブ
     未対応なので `npx -y mcp-remote` で stdio に橋渡しします
@@ -124,7 +148,8 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     `grok mcp doctor <name>` で接続を確認してください。
 - **スコープ対応**: `local` / `project` / `user` を切り替えて出力。各 CLI の
   仕様に合わせて自動で正規化します (Gemini / Qwen / Grok Build は `local` を
-  `project` に丸めるなど)。
+  `project` に丸め、Codex は `project` / `local` を `.codex/config.toml` の
+  プロジェクト層に割り当てるなど)。
 - **安全なシェルクオート**: 値に空白や特殊文字を含む場合のみ `'...'` で
   くるみ、POSIX シェルにそのまま貼って動く形式で出力します。
 - **ワンクリックコピー**: 生成結果はコピー ボタン 1 つで貼り付けられます。
@@ -177,7 +202,8 @@ another format on the fly.
   - `Claude Desktop` — `%APPDATA%\Claude\claude_desktop_config.json`
   - `mcpServers JSON` — common form for Cursor / Windsurf, etc.
   - `VS Code mcp.json` — VS Code form whose top-level key is `servers`
-  - `Codex config.toml` — TOML excerpt for `~/.codex/config.toml`
+  - `Codex config.toml` — TOML excerpt for `~/.codex/config.toml` (user) or
+    `.codex/config.toml` at the project root (project / local)
   - `Grok config.toml` — `[mcp_servers.<name>]` excerpt for
     `%USERPROFILE%\.grok\config.toml` (user) or `.grok\config.toml` (project)
   - `Antigravity mcp_config.json` — Google Antigravity Editor's
@@ -191,12 +217,38 @@ another format on the fly.
     rewritten via `uvx mcp-proxy`. For Streamable HTTP sources we emit
     `--transport streamablehttp` explicitly and repeat `--headers K V`
     once per header.
-  - Because Codex CLI does not support SSE natively, SSE servers are bridged
-    to stdio via `npx -y mcp-remote`.
+  - Codex only has the `stdio` and `streamable_http` transports, so SSE
+    registrations are bridged to stdio via `npx -y mcp-remote` and the output
+    carries a note saying so.
   - For Gemini CLI / Qwen Code, the `--` separator is inserted whenever
     the server-side args could collide with known flags.
   - `Authorization: Bearer ${ENV_VAR}` headers are converted to Codex's
-    `bearer_token_env_var` / `--bearer-token-env-var` automatically.
+    `bearer_token_env_var` / `--bearer-token-env-var` automatically. Other
+    `${ENV_VAR}` headers go to `env_http_headers`, and literal values to
+    `http_headers`.
+  - `codex mcp add` has no scope option and always writes
+    `$CODEX_HOME/config.toml` (`~/.codex/config.toml` by default). Codex's
+    config loader does read a project layer (`.codex/config.toml`), so for the
+    `project` / `local` scopes the "Codex config.toml" tab targets the project
+    root and notes that `~/.codex/config.toml` needs
+    `trust_level = "trusted"` under `[projects."<absolute path>"]` — an
+    untrusted project layer is skipped entirely.
+  - Codex has no `local` (private to you) layer, so `local` is emitted as the
+    same `.codex/config.toml` as `project`, with a note that the file is
+    shared with everyone who checks out the repository.
+  - Codex does not expand `env` values for stdio servers, so an entry like
+    `KEY = "${KEY}"` — one that references the variable of the same name — is
+    moved to `env_vars = ["KEY"]`. (Codex passes only a fixed set of
+    environment variables to stdio children, and `env_vars` is what forwards
+    the rest.) When the key and the variable name differ the entry is kept
+    as-is with a note that it will not be expanded.
+  - `codex mcp add --env KEY=VALUE` trims the key only and splits a key
+    containing `=` at the first `=`, so registrations with such env keys get a
+    note.
+  - A registration that writes the token straight into `Authorization` is
+    flagged: it is stored in plain text in `config.toml`, and Codex treats the
+    server as already bearer-authenticated, so `codex mcp login` never starts
+    the OAuth flow.
   - Google Antigravity uses `serverUrl` (camelCase) for remote URLs, which
     differs from every other client; the converter rewrites the key
     automatically. SSE is not supported natively, so SSE entries are
@@ -242,7 +294,8 @@ another format on the fly.
     `grok mcp doctor <name>`.
 - **Scope aware**: emits `local` / `project` / `user`, normalised to each
   CLI's accepted values (e.g. Gemini / Qwen / Grok Build collapse `local` to
-  `project`).
+  `project`, and Codex maps `project` / `local` onto the `.codex/config.toml`
+  project layer).
 - **Safe shell quoting**: values are single-quoted only when they contain
   whitespace or special characters, so the output can be pasted into any
   POSIX shell as-is.

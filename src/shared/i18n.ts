@@ -55,7 +55,7 @@ const ja = {
     '英数字 / `_` / `-` のみ (Codex CLI / TOML 互換)。例: `chrome-devtools` `context7`。`workspace` / `claude-in-chrome` / `computer-use` は Claude Code の予約名です。Grok は英字か `_` で始まり、末尾が `_` でなく `__` を含まない名前のみツールを登録します',
   'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (Codex CLI は scope を持たず、常に `~/.codex/config.toml` のグローバル設定。Grok は user / project のみで local は project に丸めます)',
+    'Claude / Gemini / Qwen / Grok CLI の `--scope` に反映 (`codex mcp add` に scope 相当のオプションはなく常に `~/.codex/config.toml` へ書き込みますが、"Codex config.toml" タブは project / local ならプロジェクト直下の `.codex/config.toml` 向けに出力します。Grok は user / project のみで local は project に丸めます)',
   'form.scope.local': 'local (現プロジェクトのみ)',
   'form.scope.project': 'project (.mcp.json として共有)',
   'form.scope.user': 'user (全プロジェクト共通)',
@@ -95,7 +95,8 @@ const ja = {
   'format.claude-cli.subtitle':
     '`claude mcp add` コマンド形式 (local / user は `~/.claude.json`、project はプロジェクト直下の `.mcp.json` に書き込み)',
   'format.codex-cli.title': 'Codex CLI',
-  'format.codex-cli.subtitle': '`codex mcp add` コマンド形式',
+  'format.codex-cli.subtitle':
+    '`codex mcp add` コマンド形式 (scope 相当のオプションはなく、常に `$CODEX_HOME/config.toml` = 既定 `~/.codex/config.toml` へ書き込み)',
   'format.gemini-cli.title': 'Gemini CLI',
   'format.gemini-cli.subtitle':
     '`gemini mcp add` コマンド形式 (settings.json: `~/.gemini/settings.json`)',
@@ -113,7 +114,8 @@ const ja = {
   'format.vscode-json.title': 'VS Code mcp.json',
   'format.vscode-json.subtitle': 'トップレベルキーは `servers`',
   'format.codex-toml.title': 'Codex config.toml',
-  'format.codex-toml.subtitle': '`~/.codex/config.toml` 用 TOML 抜粋',
+  'format.codex-toml.subtitle':
+    '`~/.codex/config.toml` (user) / プロジェクト直下の `.codex/config.toml` (project・要 trust) 用 TOML 抜粋',
   'format.grok-toml.title': 'Grok config.toml',
   'format.grok-toml.subtitle':
     '`%USERPROFILE%\\.grok\\config.toml` (user) / `.grok\\config.toml` (project) 用 TOML 抜粋 (HTTP / SSE はネイティブ対応でブリッジ不要)',
@@ -157,11 +159,64 @@ const ja = {
     '#     全プロジェクト共通にする場合は scope を user に変更してください。',
 
   'converters.codexCli.extraHeadersNote.line1':
-    '# 注: 任意の HTTP ヘッダ (上記以外) は `codex mcp add` の CLI フラグでは渡せません。',
+    '# 注: `codex mcp add` が扱えるヘッダは `--bearer-token-env-var` だけで、任意の HTTP ヘッダは CLI フラグで渡せません。',
   'converters.codexCli.extraHeadersNote.line2':
-    '#     右の "Codex config.toml" タブの `http_headers` をそのまま',
+    '#     右の "Codex config.toml" タブの `http_headers` / `env_http_headers` をそのまま',
   'converters.codexCli.extraHeadersNote.line3':
-    '#     ~/.codex/config.toml の該当 [mcp_servers.<name>] ブロックに追記してください。',
+    '#     {path} の該当 [mcp_servers.<name>] ブロックに追記してください。',
+  'converters.codexCli.envKeyTrimmed.line1': '# 注: 次の env キーは前後に空白を含みます: {keys}',
+  'converters.codexCli.envKeyTrimmed.line2':
+    '#     `codex mcp add --env KEY=VALUE` はキー側だけを trim するため、"Codex config.toml" タブの出力とキー名がずれます。',
+  'converters.codexCli.envKeyMalformed.line1':
+    '# 注: 次の env キーは `codex mcp add --env KEY=VALUE` では正しく解釈されません: {keys}',
+  'converters.codexCli.envKeyMalformed.line2':
+    '#     `=` を含むキーは最初の `=` で分割され、空のキーはエラーになります。"Codex config.toml" タブの `env` を直接貼り付けてください。',
+  'converters.codexCli.envRef.line1':
+    '# 注: 次の env は値が `${VAR}` 形式ですが、Codex は `env` の値を展開せずそのまま子プロセスへ渡します: {keys}',
+  'converters.codexCli.envRef.line2':
+    '#     実行後に該当行を "Codex config.toml" タブの `env_vars` へ置き換えると、Codex 自身の環境変数から値を引き継げます。',
+
+  'converters.codex.noScope.line1':
+    '# 注: `codex mcp add` に scope 相当のオプションはなく、常に $CODEX_HOME/config.toml (既定 ~/.codex/config.toml) へ書き込みます。',
+  'converters.codex.noScope.line2':
+    '#     scope="{scope}" を反映するには、"Codex config.toml" タブの内容をプロジェクト直下の .codex/config.toml に貼り付けてください。',
+  'converters.codex.noScope.line3':
+    '#     プロジェクト層は ~/.codex/config.toml の [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
+  'converters.codex.localScope.line1':
+    '# 注: Codex には local (自分だけ) に相当する層がなく、.codex/config.toml はリポジトリで共有されます。',
+  'converters.codex.localScope.line2':
+    '#     共有したくない場合は scope を user にするか、.codex/config.toml を .gitignore に追加してください。',
+  'converters.codex.sseBridge.line1':
+    '# 注: Codex のトランスポートは stdio と streamable_http (url) の 2 つだけで、SSE はサポートされません。',
+  'converters.codex.sseBridge.line2':
+    '#     そのため `npx -y mcp-remote` を stdio で起動して SSE へ橋渡ししています (Node.js が必要)。',
+  'converters.codex.sseBridge.line3':
+    '#     サービスが Streamable HTTP エンドポイントを提供している場合は、トランスポートを http に変更してください。',
+  'converters.codex.sseHeaders.line1':
+    '# 注: SSE 用のヘッダは mcp-remote の引数として config.toml に平文で残り、Codex は `${VAR}` を展開しません。',
+  'converters.codex.sseHeaders.line2':
+    '#     秘密情報を含む場合は、Streamable HTTP + `bearer_token_env_var` / `env_http_headers` への切り替えを検討してください。',
+  'converters.codex.plainBearer.line1':
+    '# 注: Authorization ヘッダにトークンを直接書いているため、{path} に平文で保存されます。',
+  'converters.codex.plainBearer.line2':
+    '#     値を `Bearer ${VAR}` 形式にすると `bearer_token_env_var` / `--bearer-token-env-var` へ変換され、実際の値は環境変数から読まれます。',
+  'converters.codex.plainBearer.line3':
+    '#     また Authorization が設定されたサーバは Bearer 認証済みとして扱われ、`codex mcp login` の OAuth フローは実行されません。',
+
+  'converters.codexToml.target.user': '# 貼り付け先: {path} ($CODEX_HOME/config.toml)',
+  'converters.codexToml.target.project': '# 貼り付け先: プロジェクト直下の {path} (scope: {scope})',
+  'converters.codexToml.projectTrust.line1':
+    '# 注: プロジェクト層 (.codex/config.toml) は、~/.codex/config.toml の',
+  'converters.codexToml.projectTrust.line2':
+    '#     [projects."<プロジェクトの絶対パス>"] に trust_level = "trusted" がある場合のみ読み込まれます。',
+  'converters.codexToml.envVars.line1':
+    '# 注: 次の env は値が同名の `${VAR}` 参照だったため、`env_vars` に振り替えました: {keys}',
+  'converters.codexToml.envVars.line2':
+    '#     Codex は stdio の子プロセスへ既定の環境変数しか渡さないため、`env_vars` で明示した変数だけが引き継がれます。',
+  'converters.codexToml.envUnexpanded.line1':
+    '# 注: 次の env は値が `${VAR}` 形式ですが、キー名と変数名が異なるため `env_vars` に振り替えられません: {keys}',
+  'converters.codexToml.envUnexpanded.line2':
+    '#     Codex は `env` の値を展開しないので、実際の値を書くかキー名を変数名に合わせてください。',
 
   'storage.error.readFailed': 'MCP 設定ストア ({path}) の読込に失敗しました: {message}',
   'storage.error.jsonParse':
@@ -216,7 +271,7 @@ const en: Record<MessageKey, string> = {
     'Letters, digits, `_`, `-` only (Codex CLI / TOML compatible). e.g. `chrome-devtools`, `context7`. `workspace` / `claude-in-chrome` / `computer-use` are reserved by Claude Code. Grok only registers tools for names that start with a letter or `_`, do not end with `_`, and contain no `__`',
   'form.scope.label': 'scope (Claude / Gemini / Qwen / Grok CLI)',
   'form.scope.hint':
-    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (Codex CLI has no scope; everything is stored globally in `~/.codex/config.toml`. Grok has only user / project, so local is rounded to project)',
+    'Maps to the `--scope` option of Claude / Gemini / Qwen / Grok CLI (`codex mcp add` has no scope option and always writes `~/.codex/config.toml`, but the "Codex config.toml" tab targets `.codex/config.toml` at the project root for project / local. Grok has only user / project, so local is rounded to project)',
   'form.scope.local': 'local (current project only)',
   'form.scope.project': 'project (shared as .mcp.json)',
   'form.scope.user': 'user (shared across all projects)',
@@ -256,7 +311,8 @@ const en: Record<MessageKey, string> = {
   'format.claude-cli.subtitle':
     '`claude mcp add` command form (local / user write to `~/.claude.json`, project to `.mcp.json` at the project root)',
   'format.codex-cli.title': 'Codex CLI',
-  'format.codex-cli.subtitle': '`codex mcp add` command form',
+  'format.codex-cli.subtitle':
+    '`codex mcp add` command form (no scope option; always writes to `$CODEX_HOME/config.toml`, `~/.codex/config.toml` by default)',
   'format.gemini-cli.title': 'Gemini CLI',
   'format.gemini-cli.subtitle':
     '`gemini mcp add` command form (settings.json: `~/.gemini/settings.json`)',
@@ -274,7 +330,8 @@ const en: Record<MessageKey, string> = {
   'format.vscode-json.title': 'VS Code mcp.json',
   'format.vscode-json.subtitle': 'Top-level key is `servers`',
   'format.codex-toml.title': 'Codex config.toml',
-  'format.codex-toml.subtitle': 'TOML excerpt for `~/.codex/config.toml`',
+  'format.codex-toml.subtitle':
+    'TOML excerpt for `~/.codex/config.toml` (user) or `.codex/config.toml` at the project root (project; requires trust)',
   'format.grok-toml.title': 'Grok config.toml',
   'format.grok-toml.subtitle':
     'TOML excerpt for `%USERPROFILE%\\.grok\\config.toml` (user) or `.grok\\config.toml` (project); HTTP / SSE are native, so no bridge is needed',
@@ -317,11 +374,66 @@ const en: Record<MessageKey, string> = {
     '#       Switch the scope to user to share the server across every project.',
 
   'converters.codexCli.extraHeadersNote.line1':
-    '# Note: arbitrary HTTP headers (other than the above) cannot be passed via `codex mcp add` CLI flags.',
+    '# Note: `--bearer-token-env-var` is the only header `codex mcp add` can set; arbitrary HTTP headers have no CLI flag.',
   'converters.codexCli.extraHeadersNote.line2':
-    '#       Copy the `http_headers` block from the "Codex config.toml" tab on the right',
+    '#       Copy the `http_headers` / `env_http_headers` lines from the "Codex config.toml" tab',
   'converters.codexCli.extraHeadersNote.line3':
-    '#       into the matching [mcp_servers.<name>] block in ~/.codex/config.toml.',
+    '#       into the matching [mcp_servers.<name>] block in {path}.',
+  'converters.codexCli.envKeyTrimmed.line1':
+    '# Note: these env keys have leading or trailing whitespace: {keys}',
+  'converters.codexCli.envKeyTrimmed.line2':
+    '#       `codex mcp add --env KEY=VALUE` trims the key only, so the stored key differs from the "Codex config.toml" tab.',
+  'converters.codexCli.envKeyMalformed.line1':
+    '# Note: these env keys are not parsed correctly by `codex mcp add --env KEY=VALUE`: {keys}',
+  'converters.codexCli.envKeyMalformed.line2':
+    '#       A key containing `=` is split at the first `=`, and an empty key is rejected. Paste the `env` line from the "Codex config.toml" tab instead.',
+  'converters.codexCli.envRef.line1':
+    '# Note: these env values look like `${VAR}`, but Codex passes `env` values to the child process verbatim: {keys}',
+  'converters.codexCli.envRef.line2':
+    '#       After running the command, replace those entries with the `env_vars` line from the "Codex config.toml" tab to inherit the value from Codex\'s own environment.',
+
+  'converters.codex.noScope.line1':
+    '# Note: `codex mcp add` has no scope option; it always writes to $CODEX_HOME/config.toml (~/.codex/config.toml by default).',
+  'converters.codex.noScope.line2':
+    '#       To honor scope="{scope}", paste the "Codex config.toml" tab into .codex/config.toml at the project root instead.',
+  'converters.codex.noScope.line3':
+    '#       The project layer is only loaded when ~/.codex/config.toml has trust_level = "trusted" under [projects."<absolute project path>"].',
+  'converters.codex.localScope.line1':
+    '# Note: Codex has no local (private to you) layer, so .codex/config.toml is shared with everyone who checks out the repository.',
+  'converters.codex.localScope.line2':
+    '#       Switch the scope to user, or add .codex/config.toml to .gitignore, if you do not want to share it.',
+  'converters.codex.sseBridge.line1':
+    '# Note: Codex only supports the stdio and streamable_http (url) transports; there is no SSE transport.',
+  'converters.codex.sseBridge.line2':
+    '#       The server is therefore bridged by launching `npx -y mcp-remote` over stdio (Node.js required).',
+  'converters.codex.sseBridge.line3':
+    '#       Switch the transport to http whenever the service offers a Streamable HTTP endpoint.',
+  'converters.codex.sseHeaders.line1':
+    '# Note: SSE headers end up as mcp-remote arguments stored in plain text in config.toml, and Codex does not expand `${VAR}`.',
+  'converters.codex.sseHeaders.line2':
+    '#       For secrets, prefer Streamable HTTP with `bearer_token_env_var` / `env_http_headers`.',
+  'converters.codex.plainBearer.line1':
+    '# Note: the Authorization header holds the token itself, so it is stored in plain text in {path}.',
+  'converters.codex.plainBearer.line2':
+    '#       Writing it as `Bearer ${VAR}` maps it to `bearer_token_env_var` / `--bearer-token-env-var`, and the value is read from the environment.',
+  'converters.codex.plainBearer.line3':
+    '#       A server with an Authorization header also counts as bearer-authenticated, so `codex mcp login` never starts the OAuth flow.',
+
+  'converters.codexToml.target.user': '# Paste into: {path} ($CODEX_HOME/config.toml)',
+  'converters.codexToml.target.project':
+    '# Paste into: {path} at the project root (scope: {scope})',
+  'converters.codexToml.projectTrust.line1':
+    '# Note: the project layer (.codex/config.toml) is only loaded when ~/.codex/config.toml has',
+  'converters.codexToml.projectTrust.line2':
+    '#       trust_level = "trusted" under [projects."<absolute project path>"].',
+  'converters.codexToml.envVars.line1':
+    '# Note: these env values were `${VAR}` references naming the same key, so they moved to `env_vars`: {keys}',
+  'converters.codexToml.envVars.line2':
+    '#       Codex passes only a fixed set of environment variables to stdio servers, so `env_vars` is what forwards the rest.',
+  'converters.codexToml.envUnexpanded.line1':
+    '# Note: these env values look like `${VAR}` but the key and the variable name differ, so `env_vars` cannot express them: {keys}',
+  'converters.codexToml.envUnexpanded.line2':
+    '#       Codex does not expand `env` values, so write the real value or rename the key to match the variable.',
 
   'storage.error.readFailed': 'Failed to read MCP store ({path}): {message}',
   'storage.error.jsonParse':

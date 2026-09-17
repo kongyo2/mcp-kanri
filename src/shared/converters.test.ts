@@ -10,6 +10,15 @@ import {
   grokTreatsAsSse,
   isClaudeReservedName,
   mcpProxyBridge,
+  opencodeCliRejectsUrl,
+  opencodeConfigPath,
+  opencodeEntryKeyIssues,
+  opencodeEnvKeyIssues,
+  opencodeEnvRefKeys,
+  opencodeHeaderKeyIssues,
+  opencodeNameLooksLikeOption,
+  opencodeUnexpandedKeys,
+  opencodeVariableFields,
   partitionCodexStdioEnv,
   quoteShell,
   toAntigravityJson,
@@ -24,6 +33,10 @@ import {
   toGrokScope,
   toGrokToml,
   toMcpJson,
+  toOpencodeCli,
+  toOpencodeJson,
+  toOpencodeScope,
+  toOpencodeVariables,
   toQwenCli,
   toVscodeJson,
 } from './converters.js';
@@ -904,6 +917,315 @@ describe('grok catalog helpers', () => {
   });
 });
 
+function opencodeJsonBody(text: string): Record<string, unknown> {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => !line.startsWith('//'));
+  return JSON.parse(lines.slice(start).join('\n')) as Record<string, unknown>;
+}
+
+function opencodeEntry(text: string, name: string): Record<string, unknown> {
+  const mcp = opencodeJsonBody(text)['mcp'] as Record<string, Record<string, unknown>>;
+  return mcp[name] as Record<string, unknown>;
+}
+
+describe('toOpencodeCli', () => {
+  it('passes the local command after the -- separator', () => {
+    expect(toOpencodeCli(stdioBase)).toBe(
+      'opencode mcp add chrome-devtools -- npx -y chrome-devtools-mcp@latest',
+    );
+  });
+
+  it('attaches env as --env=KEY=VALUE before the separator', () => {
+    expect(toOpencodeCli({ ...stdioWithEnv, scope: 'user' })).toBe(
+      'opencode mcp add airtable --env=AIRTABLE_API_KEY=YOUR_KEY -- npx -y airtable-mcp-server',
+    );
+  });
+
+  it('uses --url and attached --header=KEY=VALUE for remote servers', () => {
+    expect(toOpencodeCli(httpServer)).toBe(
+      "opencode mcp add notion --url https://mcp.notion.com/mcp --header='Authorization=Bearer xyz'",
+    );
+  });
+
+  it('keeps a dash-prefixed key attached so yargs does not drop it', () => {
+    expect(toOpencodeCli({ ...stdioBase, env: { '-FOO': 'v' } })).toContain('--env=-FOO=v');
+    expect(toOpencodeCli({ ...httpServer, headers: { '-Trace': 'v' } })).toContain(
+      '--header=-Trace=v',
+    );
+  });
+
+  it('sends sse through --url and notes the remote fallback', () => {
+    const text = toOpencodeCli(claudeSse, 'en');
+    expect(text.split('\n')[0]).toContain('--url https://api.example.com/sse');
+    expect(text).toContain('no dedicated SSE type');
+  });
+
+  it('comments the command out when the scope would be silently ignored', () => {
+    const text = toOpencodeCli({ ...stdioBase, scope: 'project' }, 'en');
+    expect(text).toContain('has no scope option');
+    expect(text).toContain('# opencode mcp add chrome-devtools --');
+    expect(text.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+  });
+
+  it('leaves the command runnable for the user scope', () => {
+    const text = toOpencodeCli(stdioBase, 'en');
+    expect(text.startsWith('opencode mcp add')).toBe(true);
+    expect(text).not.toContain('has no scope option');
+  });
+
+  it('comments the command out when the name would be read as an option', () => {
+    const text = toOpencodeCli({ ...stdioBase, name: '--url' }, 'en');
+    expect(text).toContain('starts with `-`');
+    expect(text).toContain('# opencode mcp add --url --');
+    expect(text.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+    expect(toOpencodeCli(stdioBase, 'en')).not.toContain('starts with `-`');
+  });
+
+  it('rewrites ${VAR} into the opencode substitution form', () => {
+    const text = toOpencodeCli({ ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}' } });
+    expect(text).toContain("--header='Authorization=Bearer {env:TOKEN}'");
+  });
+
+  it('rewrites ${VAR} in the stdio command and args', () => {
+    const text = toOpencodeCli(
+      { ...stdioBase, command: '${HOME}/bin/server', args: ['--config=${CONFIG_PATH}'] },
+      'en',
+    );
+    expect(text.split('\n')[0]).toBe(
+      "opencode mcp add chrome-devtools -- '{env:HOME}/bin/server' '--config={env:CONFIG_PATH}'",
+    );
+    expect(text).toContain('"command", "args[0]"');
+  });
+
+  it('rewrites ${VAR} in the url as well', () => {
+    const text = toOpencodeCli({ ...httpServer, url: 'https://mcp.example.com/${TENANT}/mcp' });
+    expect(text.split('\n')[0]).toContain("--url 'https://mcp.example.com/{env:TENANT}/mcp'");
+    expect(text).toContain('"url"');
+  });
+
+  it('comments the command out when the rewritten url is unparseable', () => {
+    const text = toOpencodeCli({ ...httpServer, url: 'https://${HOST}/mcp' }, 'en');
+    expect(text).toContain('does not pass `URL.canParse`');
+    expect(text.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+    expect(
+      toOpencodeCli({ ...httpServer, url: 'https://ex.com/${P}' }, 'en').startsWith('opencode'),
+    ).toBe(true);
+  });
+});
+
+describe('toOpencodeJson', () => {
+  it('emits a local entry whose command merges command and args', () => {
+    expect(opencodeEntry(toOpencodeJson(stdioBase), 'chrome-devtools')).toEqual({
+      type: 'local',
+      command: ['npx', '-y', 'chrome-devtools-mcp@latest'],
+      enabled: true,
+    });
+  });
+
+  it('uses the environment key rather than env', () => {
+    expect(opencodeEntry(toOpencodeJson(stdioWithEnv), 'airtable')['environment']).toEqual({
+      AIRTABLE_API_KEY: 'YOUR_KEY',
+    });
+  });
+
+  it('emits remote entries for http', () => {
+    expect(opencodeEntry(toOpencodeJson(httpServer), 'notion')).toEqual({
+      type: 'remote',
+      url: 'https://mcp.notion.com/mcp',
+      enabled: true,
+      headers: { Authorization: 'Bearer xyz' },
+    });
+  });
+
+  it('emits remote entries for sse without a bridge', () => {
+    const text = toOpencodeJson(claudeSse);
+    expect(opencodeEntry(text, 'notion')['type']).toBe('remote');
+    expect(text).not.toContain('mcp-remote');
+    expect(text).not.toContain('mcp-proxy');
+  });
+
+  it('carries the $schema url and stays parseable despite the // notes', () => {
+    const text = toOpencodeJson(stdioWithEnv, 'en');
+    expect(text.startsWith('//')).toBe(true);
+    expect(opencodeJsonBody(text)['$schema']).toBe('https://opencode.ai/config.json');
+  });
+
+  it('rewrites ${VAR} into {env:VAR} and says so', () => {
+    const text = toOpencodeJson(
+      { ...stdioWithEnv, env: { AIRTABLE_API_KEY: '${AIRTABLE_API_KEY}' } },
+      'en',
+    );
+    expect(opencodeEntry(text, 'airtable')['environment']).toEqual({
+      AIRTABLE_API_KEY: '{env:AIRTABLE_API_KEY}',
+    });
+    expect(text).toContain('opencode substitution');
+  });
+
+  it('warns about ${...} forms opencode never expands', () => {
+    const text = toOpencodeJson({ ...httpServer, headers: { 'X-Bad': '${1BAD}' } }, 'en');
+    expect(opencodeEntry(text, 'notion')['headers']).toEqual({ 'X-Bad': '${1BAD}' });
+    expect(text).toContain('still contain');
+  });
+
+  it('still warns when only part of a value could be rewritten', () => {
+    const text = toOpencodeJson(
+      { ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}-${1BAD}' } },
+      'en',
+    );
+    expect(opencodeEntry(text, 'notion')['headers']).toEqual({
+      Authorization: 'Bearer {env:TOKEN}-${1BAD}',
+    });
+    expect(text).toContain('opencode substitution');
+    expect(text).toContain('still contain');
+  });
+
+  it('names the target config file per scope, honouring XDG_CONFIG_HOME', () => {
+    expect(toOpencodeJson(stdioBase, 'en')).toContain(
+      '// Write to: $XDG_CONFIG_HOME/opencode/opencode.json (default: ~/.config/opencode/opencode.json)',
+    );
+    expect(toOpencodeJson({ ...stdioBase, scope: 'project' }, 'en')).toContain(
+      '// Write to: opencode.json at the project root (scope: project)',
+    );
+  });
+
+  it('carries the malformed-key warning into the JSON output too', () => {
+    const env = toOpencodeJson({ ...stdioBase, env: { 'A=B': 'c', '  ': 'd' } }, 'en');
+    expect(env).toContain('cannot be used as environment variable names');
+    expect(env).toContain('"A=B"');
+    expect(env).toContain('"  "');
+    expect(env).not.toContain('can carry the key verbatim');
+
+    const header = toOpencodeJson(
+      { ...httpServer, headers: { 'X=Y': 'a', 'Bad Header': 'b', 'X:Y': 'c' } },
+      'en',
+    );
+    expect(header).toContain('cannot be used as HTTP header names');
+    expect(header).toContain('"X=Y", "Bad Header", "X:Y"');
+    expect(toOpencodeJson(stdioWithEnv, 'en')).not.toContain('cannot be used as');
+  });
+
+  it('rewrites ${VAR} in the url and reports it as a field', () => {
+    const text = toOpencodeJson({ ...httpServer, url: 'https://${HOST}/mcp' }, 'en');
+    expect(opencodeEntry(text, 'notion')['url']).toBe('https://{env:HOST}/mcp');
+    expect(text).toContain('"url"');
+    expect(text).toContain('opencode substitution');
+  });
+
+  it('describes an unset variable as an empty substitution, not an error', () => {
+    const text = toOpencodeJson({ ...httpServer, headers: { A: '${TOKEN}' } }, 'en');
+    expect(text).toContain('replaced with an empty string rather than raising an error');
+    expect(text).not.toContain('fails when the variable is unset');
+  });
+
+  it('tells the reader to merge into an existing config', () => {
+    expect(toOpencodeJson(stdioBase, 'en')).toContain('merge just the one `mcp` entry');
+    expect(toOpencodeJson({ ...stdioBase, scope: 'project' }, 'en')).toContain(
+      'merge just the one `mcp` entry',
+    );
+  });
+
+  it('keeps an option-shaped name usable as a plain mcp key', () => {
+    const text = toOpencodeJson({ ...stdioBase, name: '--url' }, 'en');
+    expect(opencodeEntry(text, '--url')['type']).toBe('local');
+    expect(text).not.toContain('starts with `-`');
+  });
+
+  it('notes that local is rounded to the project config', () => {
+    expect(toOpencodeJson(stdioWithEnv, 'en')).toContain('global and project layers');
+    expect(toOpencodeJson(stdioBase, 'en')).not.toContain('global and project layers');
+  });
+});
+
+describe('opencode helpers', () => {
+  it('maps the mcp-kanri scopes onto the two opencode layers', () => {
+    expect(toOpencodeScope('user')).toBe('global');
+    expect(toOpencodeScope('project')).toBe('project');
+    expect(toOpencodeScope('local')).toBe('project');
+  });
+
+  it('resolves the config path per scope', () => {
+    expect(opencodeConfigPath('user')).toBe('$XDG_CONFIG_HOME/opencode/opencode.json');
+    expect(opencodeConfigPath('project')).toBe('opencode.json');
+    expect(opencodeConfigPath('local')).toBe('opencode.json');
+  });
+
+  it('rewrites only well-formed ${VAR} references', () => {
+    expect(toOpencodeVariables('${TOKEN}')).toBe('{env:TOKEN}');
+    expect(toOpencodeVariables('Bearer ${A} ${B}')).toBe('Bearer {env:A} {env:B}');
+    expect(toOpencodeVariables('${1BAD}')).toBe('${1BAD}');
+    expect(toOpencodeVariables('plain')).toBe('plain');
+  });
+
+  it('separates rewritten keys from ones left unexpanded', () => {
+    const record = { A: '${OK}', B: '${1BAD}', C: 'plain' };
+    expect(opencodeEnvRefKeys(record)).toEqual(['A']);
+    expect(opencodeUnexpandedKeys(record)).toEqual(['B']);
+  });
+
+  it('reports a partly rewritten value in both lists', () => {
+    const record = { A: 'Bearer ${OK}-${1BAD}' };
+    expect(opencodeEnvRefKeys(record)).toEqual(['A']);
+    expect(opencodeUnexpandedKeys(record)).toEqual(['A']);
+  });
+
+  it('flags names that collide with CLI options', () => {
+    expect(opencodeNameLooksLikeOption('--url')).toBe(true);
+    expect(opencodeNameLooksLikeOption('--')).toBe(true);
+    expect(opencodeNameLooksLikeOption('-x')).toBe(true);
+    expect(opencodeNameLooksLikeOption('chrome-devtools')).toBe(false);
+    expect(opencodeNameLooksLikeOption('_private')).toBe(false);
+  });
+
+  it('flags env keys that cannot be an environment variable name', () => {
+    expect(opencodeEnvKeyIssues({ OK: 'v', 'A=B': 'c', '': 'd', '  ': 'e' })).toEqual([
+      'A=B',
+      '',
+      '  ',
+    ]);
+    expect(opencodeEnvKeyIssues({ OK: 'v', 'Has Space': 'w' })).toEqual([]);
+  });
+
+  it('flags header keys that are not HTTP tokens', () => {
+    expect(
+      opencodeHeaderKeyIssues({
+        'X-Ok': 'v',
+        "Weird!#$%&'*+.^_`|~0": 'v',
+        'Bad Header': 'v',
+        'X:Y': 'v',
+        'X=Y': 'v',
+        '': 'v',
+      }),
+    ).toEqual(['Bad Header', 'X:Y', 'X=Y', '']);
+  });
+
+  it('labels variable fields by group and includes command, args and url', () => {
+    expect(opencodeVariableFields({ ...stdioBase, env: { A: '1' } })).toEqual({
+      command: 'npx',
+      'args[0]': '-y',
+      'args[1]': 'chrome-devtools-mcp@latest',
+      'environment.A': '1',
+    });
+    expect(opencodeVariableFields({ ...httpServer, headers: { A: '1' } })).toEqual({
+      url: 'https://mcp.notion.com/mcp',
+      'headers.A': '1',
+    });
+  });
+
+  it('detects urls the opencode CLI would reject after rewriting', () => {
+    expect(opencodeCliRejectsUrl({ ...httpServer, url: 'https://${HOST}/mcp' })).toBe(true);
+    expect(opencodeCliRejectsUrl({ ...httpServer, url: 'https://ex.com/${P}' })).toBe(false);
+    expect(opencodeCliRejectsUrl(httpServer)).toBe(false);
+    expect(opencodeCliRejectsUrl(stdioBase)).toBe(false);
+  });
+
+  it('picks the rule that matches the transport', () => {
+    expect(opencodeEntryKeyIssues({ ...stdioBase, env: { 'Has Space': 'v' } })).toEqual([]);
+    expect(opencodeEntryKeyIssues({ ...httpServer, headers: { 'Has Space': 'v' } })).toEqual([
+      'Has Space',
+    ]);
+  });
+});
+
 describe('toClaudeDesktop', () => {
   it('emits standard mcpServers JSON for stdio (no type field)', () => {
     const parsed: unknown = JSON.parse(toClaudeDesktop(stdioBase));
@@ -1274,6 +1596,9 @@ describe('formatServer dispatch', () => {
     expect(formatServer('gemini-cli', stdioBase)).toContain('gemini mcp add');
     expect(formatServer('qwen-cli', stdioBase)).toContain('qwen mcp add');
     expect(formatServer('grok-cli', stdioBase)).toContain('grok mcp add');
+    expect(formatServer('opencode-cli', stdioBase)).toContain('opencode mcp add');
+    expect(formatServer('opencode-json', stdioBase)).toContain('"type": "local"');
+    expect(formatServer('opencode-json', claudeSse)).toContain('"type": "remote"');
     expect(formatServer('grok-toml', stdioBase)).toContain('[mcp_servers.');
     expect(formatServer('grok-toml', claudeSse)).toContain('type = "sse"');
     expect(formatServer('claude-desktop', stdioBase)).toContain('"mcpServers"');

@@ -1,3 +1,5 @@
+<img src="build/icon.svg" alt="mcp-kanri" width="128" height="128">
+
 # mcp-kanri
 
 [![CI](https://github.com/kongyo2/mcp-kanri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongyo2/mcp-kanri/actions/workflows/ci.yml)

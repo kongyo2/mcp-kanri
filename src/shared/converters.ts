@@ -152,7 +152,7 @@ function stdioNameAndCommand(server: Extract<McpServer, { transport: 'stdio' }>)
   return parts;
 }
 
-export const CLAUDE_RESERVED_SERVER_NAMES: readonly string[] = [
+const CLAUDE_RESERVED_SERVER_NAMES: readonly string[] = [
   'workspace',
   'claude-in-chrome',
   'computer-use',
@@ -186,7 +186,7 @@ function recordWhitespaceFields(
   return fields;
 }
 
-export function claudeWhitespaceFields(server: McpServer): string[] {
+function claudeWhitespaceFields(server: McpServer): string[] {
   if (server.transport === 'stdio') {
     const fields: string[] = [];
     if (hasEdgeWhitespace(server.command)) fields.push('command');
@@ -267,9 +267,9 @@ export function toClaudeCli(server: McpServer, locale: Locale = 'en'): string {
 
 export type CodexConfigTarget = 'user' | 'project';
 
-export const CODEX_USER_CONFIG_PATH = '$CODEX_HOME/config.toml';
-export const CODEX_USER_CONFIG_DEFAULT_PATH = '~/.codex/config.toml';
-export const CODEX_PROJECT_CONFIG_PATH = '.codex/config.toml';
+const CODEX_USER_CONFIG_PATH = '$CODEX_HOME/config.toml';
+const CODEX_USER_CONFIG_DEFAULT_PATH = '~/.codex/config.toml';
+const CODEX_PROJECT_CONFIG_PATH = '.codex/config.toml';
 
 export function toCodexConfigTarget(scope: Scope): CodexConfigTarget {
   return scope === 'user' ? 'user' : 'project';
@@ -626,7 +626,7 @@ export function toGrokCli(server: McpServer, locale: Locale = 'en'): string {
   return [grokAddCommand(server), ...notes.flatMap(asCommentLines)].join('\n');
 }
 
-export function mcpRemoteBridge(
+function mcpRemoteBridge(
   url: string,
   headers: Record<string, string>,
 ): { command: string; args: string[] } {
@@ -664,13 +664,13 @@ function stripBearerHeader(
   return result;
 }
 
-export interface CodexHeaderPartition {
+interface CodexHeaderPartition {
   readonly bearerTokenEnvVar: string | null;
   readonly envHttpHeaders: Record<string, string>;
   readonly staticHttpHeaders: Record<string, string>;
 }
 
-export function partitionCodexHttpHeaders(headers: Record<string, string>): CodexHeaderPartition {
+function partitionCodexHttpHeaders(headers: Record<string, string>): CodexHeaderPartition {
   const bearerEnvVar = pickBearerTokenEnvVar(headers);
   const envHttpHeaders: Record<string, string> = {};
   const staticHttpHeaders: Record<string, string> = {};
@@ -909,19 +909,13 @@ export function toGrokToml(server: McpServer, locale: Locale = 'en'): string {
 
 export type OpencodeScope = 'global' | 'project';
 
-export const OPENCODE_GLOBAL_CONFIG_PATH = '$XDG_CONFIG_HOME/opencode/opencode.json';
-export const OPENCODE_GLOBAL_CONFIG_DEFAULT_PATH = '~/.config/opencode/opencode.json';
-export const OPENCODE_PROJECT_CONFIG_PATH = 'opencode.json';
-export const OPENCODE_CONFIG_SCHEMA_URL = 'https://opencode.ai/config.json';
+const OPENCODE_GLOBAL_CONFIG_PATH = '$XDG_CONFIG_HOME/opencode/opencode.json';
+const OPENCODE_GLOBAL_CONFIG_DEFAULT_PATH = '~/.config/opencode/opencode.json';
+const OPENCODE_PROJECT_CONFIG_PATH = 'opencode.json';
+const OPENCODE_CONFIG_SCHEMA_URL = 'https://opencode.ai/config.json';
 
 export function toOpencodeScope(scope: Scope): OpencodeScope {
   return scope === 'user' ? 'global' : 'project';
-}
-
-export function opencodeConfigPath(scope: Scope): string {
-  return toOpencodeScope(scope) === 'global'
-    ? OPENCODE_GLOBAL_CONFIG_PATH
-    : OPENCODE_PROJECT_CONFIG_PATH;
 }
 
 const OPENCODE_ENV_REF = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;

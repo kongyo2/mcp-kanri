@@ -11,7 +11,6 @@ import {
   isClaudeReservedName,
   mcpProxyBridge,
   opencodeCliRejectsUrl,
-  opencodeConfigPath,
   opencodeEntryKeyIssues,
   opencodeEnvKeyIssues,
   opencodeEnvRefKeys,
@@ -1141,12 +1140,6 @@ describe('opencode helpers', () => {
     expect(toOpencodeScope('user')).toBe('global');
     expect(toOpencodeScope('project')).toBe('project');
     expect(toOpencodeScope('local')).toBe('project');
-  });
-
-  it('resolves the config path per scope', () => {
-    expect(opencodeConfigPath('user')).toBe('$XDG_CONFIG_HOME/opencode/opencode.json');
-    expect(opencodeConfigPath('project')).toBe('opencode.json');
-    expect(opencodeConfigPath('local')).toBe('opencode.json');
   });
 
   it('rewrites only well-formed ${VAR} references', () => {

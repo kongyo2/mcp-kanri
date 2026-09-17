@@ -31,7 +31,7 @@ export interface Draft {
   readonly headers: readonly KeyValueRow[];
 }
 
-export type ComposeTarget =
+type ComposeTarget =
   | { readonly kind: 'create' }
   | { readonly kind: 'edit'; readonly serverId: string; readonly originalName: string };
 
@@ -41,7 +41,7 @@ export interface ComposeContext {
   readonly error: string | null;
 }
 
-export interface PendingRemoval {
+interface PendingRemoval {
   readonly serverId: string;
   readonly name: string;
 }
@@ -52,7 +52,7 @@ export interface SubmittingPhase {
   readonly ticket: number;
 }
 
-export type Phase =
+type Phase =
   | { readonly status: 'booting' }
   | { readonly status: 'browsing' }
   | { readonly status: 'composing'; readonly compose: ComposeContext }
@@ -60,7 +60,7 @@ export type Phase =
   | { readonly status: 'confirming'; readonly pending: PendingRemoval }
   | { readonly status: 'removing'; readonly pending: PendingRemoval };
 
-export interface Toast {
+interface Toast {
   readonly message: string;
   readonly kind: 'success' | 'error';
   readonly token: number;
@@ -78,7 +78,7 @@ export interface AppState {
   readonly seq: number;
 }
 
-export const DEFAULT_FORMAT: FormatId = 'claude-cli';
+const DEFAULT_FORMAT: FormatId = 'claude-cli';
 
 export function createInitialState(locale: Locale = DEFAULT_LOCALE): AppState {
   return {

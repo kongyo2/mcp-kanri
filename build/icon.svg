@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none" viewBox="0 0 80 80">
+<!-- SVG created with Arrow, by QuiverAI (https://quiver.ai) -->
+  <defs>
+    <filter id="filter0_d_22341_42032" x="2.045" y="3.637" width="75.91" height="74.18" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" result="hardAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/>
+      <feOffset dy="1"/>
+      <feGaussianBlur stdDeviation="1"/>
+      <feColorMatrix values="0 0 0 0 0 0 0 0 0 0.105882 0 0 0 0 0.305882 0 0 0 0.5 0"/>
+      <feBlend in2="BackgroundImageFix" result="effect1_dropShadow_22341_42032"/>
+      <feBlend in="SourceGraphic" in2="effect1_dropShadow_22341_42032" result="shape"/>
+    </filter>
+    <linearGradient id="paint0_linear_22341_42032" x1="13.99" x2="13.99" y1="11.07" y2="25.35" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9EF063" offset="0"/>
+      <stop stop-color="#66D954" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint1_linear_22341_42032" x1="11.43" x2="11.43" y1="32.37" y2="45.71" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8CE761" offset="0"/>
+      <stop stop-color="#64D650" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint2_linear_22341_42032" x1="13.71" x2="13.71" y1="52.95" y2="66.41" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9CEF62" offset="0"/>
+      <stop stop-color="#65D851" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint3_linear_22341_42032" x1="66.65" x2="66.65" y1="10.61" y2="25.77" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#13D3F2" offset="0"/>
+      <stop stop-color="#0BB9F7" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint4_linear_22341_42032" x1="68.31" x2="68.31" y1="31.98" y2="46.18" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BD96FF" offset="0"/>
+      <stop stop-color="#8E60F5" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint5_linear_22341_42032" x1="66.21" x2="66.21" y1="52.54" y2="66.64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCCB56" offset="0"/>
+      <stop stop-color="#F9AF30" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint6_linear_22341_42032" x1="39.78" x2="39.78" y1="60.11" y2="74.81" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1BCFF5" offset="0"/>
+      <stop stop-color="#089DF9" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint7_linear_22341_42032" x1="39.96" x2="39.96" y1="3.637" y2="18.71" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#25D0F6" offset="0"/>
+      <stop stop-color="#089CF8" offset="1"/>
+    </linearGradient>
+    <linearGradient id="paint8_linear_22341_42032" x1="40.03" x2="40.03" y1="25.32" y2="53.03" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1CE1F6" offset="0"/>
+      <stop stop-color="#18CDF7" offset="1"/>
+    </linearGradient>
+  </defs>
+  <rect x=".4688" y=".4688" width="79.06" height="79.06" rx="12.51" fill="#001532" stroke="#102A57" stroke-width=".9375"/>
+  <g filter="url(#filter0_d_22341_42032)">
+    <path d="m19.22 11.07h-10.3c-1.42 0-2.33 0.99-2.33 2.26v9.73c0 1.35 0.99 2.29 2.33 2.29h10.3c1.34 0 2.33-0.97 2.33-2.29v-9.73c0-1.36-0.94-2.26-2.33-2.26z" stroke="url(#paint0_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m9.92 14.21 1.97 1.67-1.97 1.71" stroke="#8CE761" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.035"/>
+    <path d="m12.89 17.8h2.04" stroke="#8CE761" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m9.79 20.48h7.24" stroke="#8CE761" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m9.79 22.53h5.11" stroke="#8CE761" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m16.39 32.37h-9.62c-1.43 0-2.3 0.95-2.3 2.2v8.85c0 1.33 0.97 2.29 2.3 2.29h9.62c1.34 0 2.27-0.95 2.27-2.24v-8.9c0-1.33-0.91-2.2-2.27-2.2z" stroke="url(#paint1_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m7.8 35.49c-0.41 0-0.59 0.22-0.59 0.63v1.01c0 0.41-0.25 0.66-0.67 0.66 0.42 0 0.67 0.25 0.67 0.66v1c0 0.42 0.18 0.64 0.59 0.64" stroke="#81E25A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8438"/>
+    <path d="m15.65 37.41c0.42 0 0.59 0.22 0.59 0.63v1.01c0 0.41 0.25 0.66 0.67 0.66-0.42 0-0.67 0.25-0.67 0.66v1c0 0.41-0.17 0.6-0.59 0.6" stroke="#81E25A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8438"/>
+    <path d="m9.39 36.36h2.99" stroke="#81E25A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m9.39 38.35h4.76" stroke="#81E25A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8848"/>
+    <path d="m9.39 40.37h2.78" stroke="#81E25A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m9.39 42.35h4.35" stroke="#81E25A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9004"/>
+    <path d="m19.17 52.95h-10.4c-1.53 0-2.39 1.02-2.39 2.3v8.71c0 1.46 1.01 2.45 2.39 2.45h10.4c1.43 0 2.38-1.07 2.38-2.36v-8.8c0-1.39-0.93-2.3-2.38-2.3z" stroke="url(#paint2_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <ellipse cx="14" cy="57.41" rx="3.766" ry="1.578" stroke="#86E459" stroke-width=".7656"/>
+    <path d="m10.24 57.41v4.9c0 0.93 1.85 1.6 3.76 1.6 1.99 0 3.74-0.71 3.74-1.6v-4.9" stroke="#86E459" stroke-width=".75"/>
+    <path d="m10.24 59.98c0 0.85 1.95 1.43 3.76 1.43 1.87 0 3.74-0.64 3.74-1.43" stroke="#86E459" stroke-width=".707"/>
+    <path d="m71.23 11.07h-10.49c-1.43 0-2.35 0.98-2.35 2.25v9.74c0 1.37 0.99 2.3 2.35 2.3h10.49c1.42 0 2.29-1.04 2.29-2.25v-9.79c0-1.34-0.91-2.25-2.29-2.25z" stroke="url(#paint3_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <circle cx="66.27" cy="16.38" r="3.359" stroke="#8CE6F7" stroke-width=".75"/>
+    <path d="m66.26 13.03c-0.77 0.27-1.4 1.68-1.4 3.35 0 1.84 0.73 3.37 1.4 3.37 0.68 0 1.33-1.53 1.33-3.37 0-1.76-0.68-3.19-1.33-3.35z" stroke="#8CE6F7" stroke-width=".6836"/>
+    <path d="m63.1 15.3h5.98" stroke="#8CE6F7" stroke-width=".6523"/>
+    <path d="m62.97 17.47h6.27" stroke="#8CE6F7" stroke-width=".668"/>
+    <path d="m61.54 21.51h9.14" stroke="#14CEF2" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8477"/>
+    <path d="m61.54 23.19h5.1" stroke="#14CEF2" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8477"/>
+    <path d="m73.33 32.38h-9.67c-1.42 0-2.19 0.98-2.19 2.16v8.95c0 1.37 0.95 2.28 2.23 2.28h9.63c1.41 0 2.25-1.02 2.25-2.24v-8.99c0-1.29-0.87-2.16-2.25-2.16z" stroke="url(#paint4_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9023"/>
+    <path d="m66.46 35.91-1.8 1.59 1.8 1.64" stroke="#A67AF2" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9023"/>
+    <path d="m70.71 35.91 1.73 1.59-1.73 1.64" stroke="#A67AF2" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9023"/>
+    <path d="m69.38 35.16-1.6 4.61" stroke="#A67AF2" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9023"/>
+    <path d="m64.62 41.83h7.95" stroke="#9C6EF0" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8242"/>
+    <path d="m64.62 43.56h4.69" stroke="#9C6EF0" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8301"/>
+    <path d="m71.31 52.98h-10.32c-1.55 0-2.37 1.04-2.37 2.29v8.66c0 1.48 1.02 2.46 2.37 2.46h10.32c1.55 0 2.4-1.16 2.4-2.41v-8.71c0-1.33-0.96-2.29-2.4-2.29z" stroke="url(#paint5_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m62.25 56.08 1.89 1.61-1.89 1.64" stroke="#FCC34A" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.035"/>
+    <path d="m65.24 59.61h2.48" stroke="#FCC34A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9727"/>
+    <path d="m62.14 62.12h7.72" stroke="#FCC34A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8672"/>
+    <path d="m62.14 63.89h5.64" stroke="#FCC34A" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8672"/>
+    <path d="m45.26 60.58h-10.48c-1.29 0-2.1 0.96-2.1 2.1v9.47c0 1.34 0.96 2.24 2.14 2.24h10.44c1.33 0 2.16-1.01 2.16-2.17v-9.54c0-1.25-0.88-2.1-2.16-2.1z" stroke="url(#paint6_linear_22341_42032)" stroke-linecap="round" stroke-linejoin="round" stroke-width=".9375"/>
+    <path d="m43.87 62.98h-7.66c-0.63 0-0.97 0.41-0.97 0.96v5.36c0 0.66 0.4 1.07 0.97 1.07h7.66c0.62 0 1-0.41 1-1v-5.43c0-0.6-0.38-0.96-1-0.96z" stroke="#A8F0FB" stroke-width=".7734"/>
+    <path d="m37.33 65.19 1.46 1.3-1.46 1.26" stroke="#A8F0FB" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8555"/>
+    <path d="m39.65 68.15h1.6" stroke="#88E3F9" stroke-linecap="round" stroke-linejoin="round" stroke-width=".832"/>
+    <path d="m38.96 70.4h2.18v1.7h-2.18v-1.7z" fill="#88E3F9"/>
+    <path d="m37.61 72.14h4.86" stroke="#91E6FA" stroke-linecap="round" stroke-linejoin="round" stroke-width=".832"/>
+    <path d="m44.2 4.08h-9.21c-1.26 0-2 0.92-2 2.02v10.03c0 1.32 0.91 2.16 2.14 2.16h9.86c1.33 0 2.12-0.93 2.12-2.13v-9.19c0-0.51-0.16-0.9-0.55-1.32l-0.95-1c-0.33-0.36-0.81-0.57-1.41-0.57z" stroke="url(#paint7_linear_22341_42032)" stroke-width=".8555"/>
+    <path d="m43.89 4.09v2.62c0 0.63 0.4 0.99 1 0.99h2.19v-0.73c0-0.52-0.16-0.91-0.55-1.33l-0.92-0.99c-0.37-0.39-0.97-0.58-1.72-0.56z" fill="#0DA3FF" stroke="#20CAF7" stroke-width=".75"/>
+    <path d="m37.75 6.86c-0.5 0-0.7 0.2-0.7 0.63v1.08c0 0.46-0.26 0.73-0.72 0.73 0.46 0 0.72 0.26 0.72 0.72v1.08c0 0.43 0.2 0.63 0.7 0.63" stroke="#85E4F9" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8086"/>
+    <path d="m40.83 6.86c0.5 0 0.7 0.2 0.7 0.63v1.08c0 0.46 0.26 0.73 0.72 0.73-0.46 0-0.72 0.26-0.72 0.72v1.08c0 0.43-0.2 0.63-0.7 0.63" stroke="#85E4F9" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8086"/>
+    <path d="m36.04 13.77h8" stroke="#25D0F6" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8555"/>
+    <path d="m36.06 15.68h5.76" stroke="#25D0F6" stroke-linecap="round" stroke-linejoin="round" stroke-width=".8438"/>
+    <path d="m24.31 18.95h1.2c1.67 0 2.66 1.04 2.66 2.51v1.77c0 1.21 0.63 2.11 1.75 2.33" stroke="#50E9F6" stroke-width=".9219"/>
+    <path d="m24.15 17.49-1.57 1.06c-0.21 0.14-0.21 0.42 0 0.57l1.57 1.12c0.23 0.14 0.47 0.04 0.47-0.22v-2.31c0-0.24-0.23-0.33-0.47-0.22z" fill="#50E9F6"/>
+    <path d="m55.69 18.95h-1.08c-1.79 0-2.76 1.13-2.76 2.55v1.76c0 1.18-0.52 2.08-1.61 2.32" stroke="#50E9F6" stroke-width=".9219"/>
+    <path d="m55.91 17.49 1.5 1.05c0.21 0.15 0.21 0.43 0 0.58l-1.5 1.11c-0.24 0.14-0.48 0.04-0.48-0.22v-2.31c0-0.24 0.25-0.32 0.48-0.21z" fill="#50E9F6"/>
+    <path d="m29.92 53.14c-1.17 0.31-1.74 1.14-1.74 2.25v1.35c0 1.63-1.25 2.62-2.79 2.62h-1.08" stroke="#50E9F6" stroke-width=".9219"/>
+    <path d="m24.18 58-1.6 1.13c-0.21 0.15-0.2 0.42 0 0.57l1.6 1.13c0.23 0.13 0.44 0.03 0.44-0.23v-2.37c0-0.26-0.21-0.32-0.44-0.23z" fill="#50E9F6"/>
+    <path d="m50.28 53.14c1.18 0.35 1.59 1.29 1.59 2.31v1.29c0 1.64 1.16 2.62 2.69 2.62h1.22" stroke="#50E9F6" stroke-width=".9219"/>
+    <path d="m55.94 58 1.54 1.12c0.21 0.15 0.2 0.42 0 0.57l-1.52 1.12c-0.24 0.14-0.49 0.04-0.49-0.23v-2.37c0-0.25 0.25-0.3 0.47-0.21z" fill="#50E9F6"/>
+    <path d="m40.05 20.82v4.45" stroke="#50E9F6" stroke-width=".9375"/>
+    <path d="m39.76 19.18-1.12 1.43c-0.18 0.24-0.05 0.52 0.25 0.52h2.23c0.3 0 0.42-0.27 0.25-0.51l-1.05-1.43c-0.15-0.2-0.41-0.19-0.56-0.01z" fill="#50E9F6"/>
+    <path d="m40.04 53.25v4.77" stroke="#50E9F6" stroke-width=".9375"/>
+    <path d="m40.26 59.67 1.11-1.5c0.17-0.23 0.04-0.46-0.26-0.46h-2.19c-0.3 0-0.42 0.23-0.25 0.47l1.06 1.49c0.16 0.2 0.39 0.19 0.53 0z" fill="#50E9F6"/>
+    <path d="m21.23 39.13h4.86" stroke="#50E9F6" stroke-width=".8828"/>
+    <path d="m21.15 37.7-1.54 1.08c-0.22 0.15-0.21 0.43 0 0.58l1.53 1.08c0.25 0.14 0.47 0.04 0.47-0.25v-2.23c0-0.28-0.22-0.37-0.46-0.26z" fill="#50E9F6"/>
+    <path d="m58.89 39.13h-4.83" stroke="#50E9F6" stroke-width=".8828"/>
+    <path d="m58.99 37.7 1.52 1.07c0.22 0.16 0.21 0.43 0 0.59l-1.52 1.08c-0.25 0.14-0.5 0.04-0.5-0.25v-2.23c0-0.28 0.25-0.38 0.5-0.26z" fill="#50E9F6"/>
+    <rect x="26.32" y="25.34" width="27.42" height="27.68" rx="5.258" fill="#02193B" stroke="url(#paint8_linear_22341_42032)" stroke-width="1.035"/>
+    <path d="m40.04 30.61v3.6" stroke="#B5F8FE" stroke-width=".8555"/>
+    <circle cx="40" cy="29.21" r="1.449" fill="#089DF9" stroke="#B5F8FE" stroke-width=".7109"/>
+    <path d="m33.72 33.11 3.95 2.39" stroke="#B5F8FE" stroke-width=".8555"/>
+    <circle cx="32.54" cy="32.42" r="1.449" fill="#089DF9" stroke="#B5F8FE" stroke-width=".7109"/>
+    <path d="m46.31 33.11-3.95 2.39" stroke="#B5F8FE" stroke-width=".8555"/>
+    <circle cx="47.48" cy="32.42" r="1.449" fill="#089DF9" stroke="#B5F8FE" stroke-width=".7109"/>
+    <path d="m33.42 39.31 3.93-1.44" stroke="#B5F8FE" stroke-width=".8555"/>
+    <circle cx="32.15" cy="39.53" r="1.465" fill="#089DF9" stroke="#B5F8FE" stroke-width=".7188"/>
+    <path d="m46.67 39.31-3.93-1.44" stroke="#B5F8FE" stroke-width=".8555"/>
+    <circle cx="47.96" cy="39.53" r="1.465" fill="#089DF9" stroke="#B5F8FE" stroke-width=".7188"/>
+    <circle cx="40.02" cy="36.96" r="2.824" fill="#089DF9" stroke="#B5F8FE" stroke-width=".8477"/>
+    <path d="m40.05 39.78v1.95" stroke="#B5F8FE" stroke-width=".8555"/>
+    <circle cx="40.04" cy="42.27" r=".9727" fill="#B5F8FE"/>
+    <path d="m31.71 44.5h3.92" opacity=".5" stroke="#A2BEF0" stroke-linecap="round" stroke-width=".8359"/>
+    <circle cx="37.21" cy="44.54" r="1.145" fill="#05C7F9"/>
+    <path d="m38.82 44.5h9.48" opacity=".5" stroke="#A2BEF0" stroke-linecap="round" stroke-width=".8359"/>
+    <path d="m31.71 47.14h8.4" opacity=".5" stroke="#A2BEF0" stroke-linecap="round" stroke-width=".8828"/>
+    <circle cx="41.77" cy="47.16" r="1.125" fill="#6EE056"/>
+    <path d="m43.31 47.14h4.99" opacity=".5" stroke="#A2BEF0" stroke-linecap="round" stroke-width=".8594"/>
+    <path d="m31.71 49.81h3.87" opacity=".5" stroke="#A2BEF0" stroke-linecap="round" stroke-width=".8555"/>
+    <circle cx="37.21" cy="49.8" r="1.145" fill="#FEC754"/>
+    <path d="m38.82 49.81h9.48" opacity=".5" stroke="#A2BEF0" stroke-linecap="round" stroke-width=".8555"/>
+  </g>
+</svg>

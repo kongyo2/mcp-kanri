@@ -191,10 +191,10 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     (`"command": ["npx", "-y", ...]`)、環境変数のキーも `env` ではなく
     `environment` なので、自動で変換します。
   - opencode は設定ファイル読み込み時に `{env:VAR}` と `{file:path}` を
-    展開します (`${VAR}` 形式は展開しません)。そのため env / headers /
-    リモート URL に書いた `${VAR}` は `{env:VAR}` へ自動変換し、変換した
-    フィールドを注記します。`${1BAD}` のように変換できない `${...}` が
-    残る場合も別途注記します。
+    展開します (`${VAR}` 形式は展開しません)。そのため command / args /
+    env / headers / リモート URL に書いた `${VAR}` は `{env:VAR}` へ自動
+    変換し、変換したフィールドを注記します。`${1BAD}` のように変換できない
+    `${...}` が残る場合も別途注記します。
   - 変数が未設定でも opencode はエラーにせず空文字に置換します
     (`config/variable.ts` の `{env:...}` 置換は `missing` オプションを見ず
     常に `|| ""`)。env なら空の値でサーバが起動し、header なら空の認証情報で
@@ -214,6 +214,12 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   - `opencode mcp add` の `--header` は他の CLI と違って `KEY=VALUE` 形式
     (`Key: Value` ではない) です。`--env` は local 専用、`--header` は
     remote 専用で、混ぜると CLI 側がエラーになるため出力を出し分けます。
+  - `--env` / `--header` は値を `--env=KEY=VALUE` のように連結した形で
+    出力します。分離した形だと、`-FOO` のように `-` で始まるキーを
+    yargs がオプションとみなして値を黙って捨ててしまうためです
+    (yargs 18.0.0 で `--env -FOO=v` → `env = []`、`--env=-FOO=v` →
+    `env = ["-FOO=v"]` を確認済み)。シェルのクオートは引数解析より前に
+    外れるので、クオートでは防げません。
   - キー名の検証はトランスポートごとに分けています。env は `=` を含むキーと
     空のキーを弾きます (プロセスの環境は NAME=VALUE の並びなので、`A=B` に
     `c` を入れても子には `A=B=c` として渡り `A` に `B=c` が入ります)。
@@ -437,10 +443,10 @@ another format on the fly.
     (`"command": ["npx", "-y", ...]`) and name the environment map
     `environment` rather than `env`, so both are converted for you.
   - opencode expands `{env:VAR}` and `{file:path}` while loading the config
-    and does not understand the `${VAR}` form, so `${VAR}` written in env,
-    headers or a remote URL is rewritten to `{env:VAR}` and the rewritten
-    fields are noted. Any `${...}` that cannot be rewritten (e.g. `${1BAD}`)
-    gets its own note.
+    and does not understand the `${VAR}` form, so `${VAR}` written in the
+    command, the args, env, headers or a remote URL is rewritten to
+    `{env:VAR}` and the rewritten fields are noted. Any `${...}` that cannot
+    be rewritten (e.g. `${1BAD}`) gets its own note.
   - An unset variable is not an error for opencode: it substitutes an empty
     string (the `{env:...}` replacement in `config/variable.ts` ignores the
     `missing` option and always falls back to `|| ""`). That starts the
@@ -461,6 +467,12 @@ another format on the fly.
     rather than `Key: Value`. `--env` is local-only and `--header` is
     remote-only — mixing them is a CLI error — so the two forms are emitted
     separately.
+  - `--env` / `--header` values are emitted attached, as `--env=KEY=VALUE`.
+    In the separated form yargs reads a key starting with `-` (such as
+    `-FOO`) as another option and silently drops the value (verified against
+    yargs 18.0.0: `--env -FOO=v` gives `env = []`, `--env=-FOO=v` gives
+    `env = ["-FOO=v"]`). Shell quoting cannot prevent this, because quotes
+    are removed before argument parsing.
   - Key validation is per transport. For env, a key containing `=` and an
     empty key are rejected (a process environment is a list of `NAME=VALUE`
     entries, so `A=B` set to `c` reaches the child as `A=B=c`, i.e. `A` with

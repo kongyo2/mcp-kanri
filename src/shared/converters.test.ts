@@ -935,15 +935,22 @@ describe('toOpencodeCli', () => {
     );
   });
 
-  it('passes env as --env KEY=VALUE before the separator', () => {
+  it('attaches env as --env=KEY=VALUE before the separator', () => {
     expect(toOpencodeCli({ ...stdioWithEnv, scope: 'user' })).toBe(
-      'opencode mcp add airtable --env AIRTABLE_API_KEY=YOUR_KEY -- npx -y airtable-mcp-server',
+      'opencode mcp add airtable --env=AIRTABLE_API_KEY=YOUR_KEY -- npx -y airtable-mcp-server',
     );
   });
 
-  it('uses --url and --header KEY=VALUE for remote servers', () => {
+  it('uses --url and attached --header=KEY=VALUE for remote servers', () => {
     expect(toOpencodeCli(httpServer)).toBe(
-      "opencode mcp add notion --url https://mcp.notion.com/mcp --header 'Authorization=Bearer xyz'",
+      "opencode mcp add notion --url https://mcp.notion.com/mcp --header='Authorization=Bearer xyz'",
+    );
+  });
+
+  it('keeps a dash-prefixed key attached so yargs does not drop it', () => {
+    expect(toOpencodeCli({ ...stdioBase, env: { '-FOO': 'v' } })).toContain('--env=-FOO=v');
+    expect(toOpencodeCli({ ...httpServer, headers: { '-Trace': 'v' } })).toContain(
+      '--header=-Trace=v',
     );
   });
 
@@ -976,7 +983,18 @@ describe('toOpencodeCli', () => {
 
   it('rewrites ${VAR} into the opencode substitution form', () => {
     const text = toOpencodeCli({ ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}' } });
-    expect(text).toContain("--header 'Authorization=Bearer {env:TOKEN}'");
+    expect(text).toContain("--header='Authorization=Bearer {env:TOKEN}'");
+  });
+
+  it('rewrites ${VAR} in the stdio command and args', () => {
+    const text = toOpencodeCli(
+      { ...stdioBase, command: '${HOME}/bin/server', args: ['--config=${CONFIG_PATH}'] },
+      'en',
+    );
+    expect(text.split('\n')[0]).toBe(
+      "opencode mcp add chrome-devtools -- '{env:HOME}/bin/server' '--config={env:CONFIG_PATH}'",
+    );
+    expect(text).toContain('"command", "args[0]"');
   });
 
   it('rewrites ${VAR} in the url as well', () => {
@@ -1180,8 +1198,11 @@ describe('opencode helpers', () => {
     ).toEqual(['Bad Header', 'X:Y', 'X=Y', '']);
   });
 
-  it('labels variable fields by group and includes the remote url', () => {
+  it('labels variable fields by group and includes command, args and url', () => {
     expect(opencodeVariableFields({ ...stdioBase, env: { A: '1' } })).toEqual({
+      command: 'npx',
+      'args[0]': '-y',
+      'args[1]': 'chrome-devtools-mcp@latest',
       'environment.A': '1',
     });
     expect(opencodeVariableFields({ ...httpServer, headers: { A: '1' } })).toEqual({

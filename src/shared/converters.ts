@@ -948,8 +948,12 @@ export function opencodeVariableFields(server: McpServer): Record<string, string
       value,
     ]),
   );
-  if (server.transport === 'stdio') return labelled;
-  return { url: server.url, ...labelled };
+  if (server.transport !== 'stdio') return { url: server.url, ...labelled };
+  return {
+    command: server.command,
+    ...Object.fromEntries(server.args.map((arg, index) => [`args[${index}]`, arg])),
+    ...labelled,
+  };
 }
 
 export function opencodeEnvRefKeys(record: Record<string, string>): string[] {
@@ -1034,18 +1038,22 @@ function opencodeSharedNotes(server: McpServer, locale: Locale): string[] {
   return notes;
 }
 
+function opencodeEntryFlags(record: Record<string, string>, flag: '--env' | '--header'): string[] {
+  return Object.entries(record).map(([key, value]) => `${flag}=${quoteShell(`${key}=${value}`)}`);
+}
+
 function opencodeAddCommand(server: McpServer): string {
   const parts: string[] = ['opencode', 'mcp', 'add', quoteShell(server.name)];
 
   if (server.transport === 'stdio') {
-    parts.push(...entryFlags(opencodeRecord(server.env), '--env', '='));
-    parts.push('--', quoteShell(server.command));
-    if (server.args.length > 0) parts.push(joinArgs(server.args));
+    parts.push(...opencodeEntryFlags(opencodeRecord(server.env), '--env'));
+    parts.push('--', quoteShell(toOpencodeVariables(server.command)));
+    if (server.args.length > 0) parts.push(joinArgs(server.args.map(toOpencodeVariables)));
     return parts.join(' ');
   }
 
   parts.push('--url', quoteShell(toOpencodeVariables(server.url)));
-  parts.push(...entryFlags(opencodeRecord(server.headers), '--header', '='));
+  parts.push(...opencodeEntryFlags(opencodeRecord(server.headers), '--header'));
   return parts.join(' ');
 }
 
@@ -1120,7 +1128,7 @@ function serverToOpencodeValue(server: McpServer): OpencodeLocal | OpencodeRemot
   if (server.transport === 'stdio') {
     const entry: OpencodeLocal = {
       type: 'local',
-      command: [server.command, ...server.args],
+      command: [server.command, ...server.args].map(toOpencodeVariables),
       enabled: true,
     };
     const environment = opencodeRecord(server.env);

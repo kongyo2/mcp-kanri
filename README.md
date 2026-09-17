@@ -191,9 +191,20 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     (`"command": ["npx", "-y", ...]`)、環境変数のキーも `env` ではなく
     `environment` なので、自動で変換します。
   - opencode は設定ファイル読み込み時に `{env:VAR}` と `{file:path}` を
-    展開します (`${VAR}` 形式は展開しません)。そのため env / headers に
-    書いた `${VAR}` は `{env:VAR}` へ自動変換し、変換したキーを注記します。
-    `${1BAD}` のように変換できない `${...}` が残る場合も別途注記します。
+    展開します (`${VAR}` 形式は展開しません)。そのため env / headers /
+    リモート URL に書いた `${VAR}` は `{env:VAR}` へ自動変換し、変換した
+    フィールドを注記します。`${1BAD}` のように変換できない `${...}` が
+    残る場合も別途注記します。
+  - 変数が未設定でも opencode はエラーにせず空文字に置換します
+    (`config/variable.ts` の `{env:...}` 置換は `missing` オプションを見ず
+    常に `|| ""`)。env なら空の値でサーバが起動し、header なら空の認証情報で
+    リクエストが飛び、URL なら `https:///mcp` になって接続に失敗するため、
+    その旨も注記します。
+  - URL のホスト部分に `{env:VAR}` を置くと `URL.canParse` を通らず、
+    `opencode mcp add --url` が "Invalid URL" で失敗します (パス部分なら
+    通ります)。該当する場合はコマンドをコメントアウトして注記します。
+    設定ファイルは読み込み前にテキスト置換されるため、「opencode.json」
+    タブの出力はホスト部分でもそのまま使えます。
   - 名前を渡す非対話モードの `opencode mcp add <name>` には scope 相当の
     オプションがなく、常にグローバル設定へ書き込みます。`project` / `local`
     を選んでいる場合は、そのまま貼るとグローバル登録になってしまうため
@@ -426,9 +437,20 @@ another format on the fly.
     (`"command": ["npx", "-y", ...]`) and name the environment map
     `environment` rather than `env`, so both are converted for you.
   - opencode expands `{env:VAR}` and `{file:path}` while loading the config
-    and does not understand the `${VAR}` form, so `${VAR}` written in env or
-    headers is rewritten to `{env:VAR}` and the rewritten keys are noted. Any
-    `${...}` that cannot be rewritten (e.g. `${1BAD}`) gets its own note.
+    and does not understand the `${VAR}` form, so `${VAR}` written in env,
+    headers or a remote URL is rewritten to `{env:VAR}` and the rewritten
+    fields are noted. Any `${...}` that cannot be rewritten (e.g. `${1BAD}`)
+    gets its own note.
+  - An unset variable is not an error for opencode: it substitutes an empty
+    string (the `{env:...}` replacement in `config/variable.ts` ignores the
+    `missing` option and always falls back to `|| ""`). That starts the
+    server with an empty env value, sends an empty credential in a header,
+    or collapses a URL to `https:///mcp`, so the output says so.
+  - A `{env:VAR}` in the host part of a URL does not pass `URL.canParse`, so
+    `opencode mcp add --url` fails with "Invalid URL" (the path part is
+    fine). The command is commented out with a note in that case. The config
+    file is substituted as text before loading, so the "opencode.json" tab
+    output works even for the host part.
   - The non-interactive `opencode mcp add <name>` has no scope option and
     always writes the global config. When the scope is `project` or `local`,
     pasting it as-is would register the server globally, so the command

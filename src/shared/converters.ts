@@ -940,6 +940,18 @@ function opencodeVariableRecord(server: McpServer): Record<string, string> {
   return server.transport === 'stdio' ? server.env : server.headers;
 }
 
+export function opencodeVariableFields(server: McpServer): Record<string, string> {
+  const group = server.transport === 'stdio' ? 'environment' : 'headers';
+  const labelled = Object.fromEntries(
+    Object.entries(opencodeVariableRecord(server)).map(([key, value]) => [
+      `${group}.${key}`,
+      value,
+    ]),
+  );
+  if (server.transport === 'stdio') return labelled;
+  return { url: server.url, ...labelled };
+}
+
 export function opencodeEnvRefKeys(record: Record<string, string>): string[] {
   return Object.entries(record)
     .filter(([, value]) => toOpencodeVariables(value) !== value)
@@ -969,25 +981,24 @@ export function opencodeEntryKeyIssues(server: McpServer): string[] {
 }
 
 function opencodeVariableNotes(server: McpServer, locale: Locale): string[] {
-  const record = opencodeVariableRecord(server);
-  const group = server.transport === 'stdio' ? 'environment' : 'headers';
+  const fields = opencodeVariableFields(server);
   const notes: string[] = [];
 
-  const converted = opencodeEnvRefKeys(record);
+  const converted = opencodeEnvRefKeys(fields);
   if (converted.length > 0) {
     notes.push(
-      translate(locale, 'converters.opencode.envRef.line1', {
-        group,
-        keys: joinForNote(converted),
-      }),
+      translate(locale, 'converters.opencode.envRef.line1', { fields: joinForNote(converted) }),
       translate(locale, 'converters.opencode.envRef.line2'),
+      translate(locale, 'converters.opencode.envRef.line3'),
     );
   }
 
-  const unexpanded = opencodeUnexpandedKeys(record);
+  const unexpanded = opencodeUnexpandedKeys(fields);
   if (unexpanded.length > 0) {
     notes.push(
-      translate(locale, 'converters.opencode.unexpanded.line1', { keys: joinForNote(unexpanded) }),
+      translate(locale, 'converters.opencode.unexpanded.line1', {
+        fields: joinForNote(unexpanded),
+      }),
       translate(locale, 'converters.opencode.unexpanded.line2'),
     );
   }
@@ -1033,9 +1044,14 @@ function opencodeAddCommand(server: McpServer): string {
     return parts.join(' ');
   }
 
-  parts.push('--url', quoteShell(server.url));
+  parts.push('--url', quoteShell(toOpencodeVariables(server.url)));
   parts.push(...entryFlags(opencodeRecord(server.headers), '--header', '='));
   return parts.join(' ');
+}
+
+export function opencodeCliRejectsUrl(server: McpServer): boolean {
+  if (server.transport === 'stdio') return false;
+  return !URL.canParse(toOpencodeVariables(server.url));
 }
 
 export function opencodeNameLooksLikeOption(name: string): boolean {
@@ -1061,6 +1077,13 @@ function opencodeCliBlockingNotes(server: McpServer, locale: Locale): string[] {
       translate(locale, 'converters.opencodeCli.optionName.line1', { name: server.name }),
       translate(locale, 'converters.opencodeCli.optionName.line2'),
       translate(locale, 'converters.opencodeCli.optionName.line3'),
+    );
+  }
+
+  if (opencodeCliRejectsUrl(server)) {
+    notes.push(
+      translate(locale, 'converters.opencodeCli.invalidUrl.line1'),
+      translate(locale, 'converters.opencodeCli.invalidUrl.line2'),
     );
   }
 
@@ -1105,7 +1128,7 @@ function serverToOpencodeValue(server: McpServer): OpencodeLocal | OpencodeRemot
     return entry;
   }
   return withHeaders<OpencodeRemote>(
-    { type: 'remote', url: server.url, enabled: true },
+    { type: 'remote', url: toOpencodeVariables(server.url), enabled: true },
     opencodeRecord(server.headers),
   );
 }

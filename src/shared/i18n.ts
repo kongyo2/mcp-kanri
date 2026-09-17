@@ -169,10 +169,13 @@ const ja = {
   'converters.opencode.sse.line2':
     '#     SSE しか提供しないエンドポイントでも、そのまま `remote` として登録すれば自動で SSE にフォールバックします。',
   'converters.opencode.envRef.line1':
-    '# 注: 次の `{group}` の値に含まれる `${VAR}` を、opencode の変数展開 `{env:VAR}` に変換しました: {keys}',
+    '# 注: 次のフィールドに含まれる `${VAR}` を、opencode の変数展開 `{env:VAR}` に変換しました: {fields}',
   'converters.opencode.envRef.line2':
-    '#     opencode は設定ファイル読み込み時に展開します。変数が未設定だと読み込みエラーになるため、事前に環境変数を設定してください。',
-  'converters.opencode.unexpanded.line1': '# 注: 次の値には `${...}` が残っています: {keys}',
+    '#     opencode は設定ファイル読み込み時に展開します。ただし変数が未設定でもエラーにはならず空文字に置換されるため、事前に環境変数を設定してください。',
+  'converters.opencode.envRef.line3':
+    '#     未設定のまま起動すると、env なら空の値のままサーバが起動し、header なら空の認証情報でリクエストが飛び、url なら `https:///mcp` のような壊れた URL になって接続に失敗します。',
+  'converters.opencode.unexpanded.line1':
+    '# 注: 次のフィールドには `${...}` が残っています: {fields}',
   'converters.opencode.unexpanded.line2':
     '#     opencode が展開するのは `{env:VAR}` と `{file:path}` だけで、`${...}` はそのまま文字列として扱われます。',
   'converters.opencode.localScope.line1':
@@ -201,9 +204,14 @@ const ja = {
     '#     シェルのクオートを外した時点でオプションと区別できず (例: 名前 `--url` は `--url` オプションとして、名前 `--` は引数区切りとして解釈されます)、名前が渡らず CLI がエラーになるため、下のコマンドはコメントアウトしてあります。',
   'converters.opencodeCli.optionName.line3':
     '#     "opencode.json" タブの出力なら `mcp` のキーとしてそのまま書けます。CLI から登録したい場合は `-` で始まらない名前に変更してください。',
-  'converters.opencodeJson.target.global': '# 書き込み先: {path} (既定 {defaultPath})',
+  'converters.opencodeJson.target.global':
+    '# 書き込み先: {path} (既定 {defaultPath})。ファイルが無ければこのまま新規作成し、既にある場合は下の `mcp` の 1 エントリだけを既存の `mcp` オブジェクトにマージしてください (全体を貼ると JSON が壊れるか、既存の設定を失います)。',
   'converters.opencodeJson.target.project':
-    '# 書き込み先: プロジェクト直下の {path} (scope: {scope})',
+    '# 書き込み先: プロジェクト直下の {path} (scope: {scope})。ファイルが無ければこのまま新規作成し、既にある場合は下の `mcp` の 1 エントリだけを既存の `mcp` オブジェクトにマージしてください (全体を貼ると JSON が壊れるか、既存の設定を失います)。',
+  'converters.opencodeCli.invalidUrl.line1':
+    '# 注: 変換後の URL は `URL.canParse` を通らないため、`opencode mcp add --url` が "Invalid URL" で失敗します。下のコマンドはコメントアウトしてあります。',
+  'converters.opencodeCli.invalidUrl.line2':
+    '#     ホスト部分に `{env:VAR}` を置くと URL として解釈できないためです。設定ファイルは読み込み前にテキストとして置換されるので、"opencode.json" タブの出力ならそのまま使えます。',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# 注: `codex mcp add` が扱えるヘッダは `--bearer-token-env-var` だけで、任意の HTTP ヘッダは CLI フラグで渡せません。',
@@ -449,11 +457,13 @@ const en: Record<MessageKey, string> = {
   'converters.opencode.sse.line2':
     '#       An SSE-only endpoint still works as `remote`, because opencode falls back to SSE automatically.',
   'converters.opencode.envRef.line1':
-    '# Note: `${VAR}` in the following `{group}` values was rewritten to the opencode substitution `{env:VAR}`: {keys}',
+    '# Note: `${VAR}` in the following fields was rewritten to the opencode substitution `{env:VAR}`: {fields}',
   'converters.opencode.envRef.line2':
-    '#       opencode expands it while loading the config and fails when the variable is unset, so export it first.',
+    '#       opencode expands it while loading the config, but an unset variable is replaced with an empty string rather than raising an error, so export it first.',
+  'converters.opencode.envRef.line3':
+    '#       Left unset, an env value starts the server empty, a header sends an empty credential, and a url collapses to something like `https:///mcp` that cannot connect.',
   'converters.opencode.unexpanded.line1':
-    '# Note: the following values still contain `${...}`: {keys}',
+    '# Note: the following fields still contain `${...}`: {fields}',
   'converters.opencode.unexpanded.line2':
     '#       opencode only expands `{env:VAR}` and `{file:path}`, so `${...}` is kept as a literal string.',
   'converters.opencode.localScope.line1':
@@ -482,9 +492,14 @@ const en: Record<MessageKey, string> = {
     '#       Once shell quoting is removed it is indistinguishable from an option (the name `--url` is read as the `--url` option, and the name `--` as the argument separator), so the name never arrives and the CLI errors out. The command below is therefore commented out.',
   'converters.opencodeCli.optionName.line3':
     '#       The "opencode.json" tab can carry it verbatim as an `mcp` key. To register from the CLI, rename the server so it does not start with `-`.',
-  'converters.opencodeJson.target.global': '# Write to: {path} (default: {defaultPath})',
+  'converters.opencodeJson.target.global':
+    '# Write to: {path} (default: {defaultPath}). Create the file with this content when it does not exist; when it does, merge just the one `mcp` entry below into the existing `mcp` object (pasting the whole document either breaks the JSON or drops your existing settings).',
   'converters.opencodeJson.target.project':
-    '# Write to: {path} at the project root (scope: {scope})',
+    '# Write to: {path} at the project root (scope: {scope}). Create the file with this content when it does not exist; when it does, merge just the one `mcp` entry below into the existing `mcp` object (pasting the whole document either breaks the JSON or drops your existing settings).',
+  'converters.opencodeCli.invalidUrl.line1':
+    '# Note: the rewritten URL does not pass `URL.canParse`, so `opencode mcp add --url` fails with "Invalid URL". The command below is commented out.',
+  'converters.opencodeCli.invalidUrl.line2':
+    '#       A `{env:VAR}` in the host part cannot be parsed as a URL. The config file is substituted as text before it is loaded, so the "opencode.json" tab output works as-is.',
 
   'converters.codexCli.extraHeadersNote.line1':
     '# Note: `--bearer-token-env-var` is the only header `codex mcp add` can set; arbitrary HTTP headers have no CLI flag.',

@@ -10,6 +10,7 @@ import {
   grokTreatsAsSse,
   isClaudeReservedName,
   mcpProxyBridge,
+  opencodeCliRejectsUrl,
   opencodeConfigPath,
   opencodeEntryKeyIssues,
   opencodeEnvKeyIssues,
@@ -17,6 +18,7 @@ import {
   opencodeHeaderKeyIssues,
   opencodeNameLooksLikeOption,
   opencodeUnexpandedKeys,
+  opencodeVariableFields,
   partitionCodexStdioEnv,
   quoteShell,
   toAntigravityJson,
@@ -976,6 +978,21 @@ describe('toOpencodeCli', () => {
     const text = toOpencodeCli({ ...httpServer, headers: { Authorization: 'Bearer ${TOKEN}' } });
     expect(text).toContain("--header 'Authorization=Bearer {env:TOKEN}'");
   });
+
+  it('rewrites ${VAR} in the url as well', () => {
+    const text = toOpencodeCli({ ...httpServer, url: 'https://mcp.example.com/${TENANT}/mcp' });
+    expect(text.split('\n')[0]).toContain("--url 'https://mcp.example.com/{env:TENANT}/mcp'");
+    expect(text).toContain('"url"');
+  });
+
+  it('comments the command out when the rewritten url is unparseable', () => {
+    const text = toOpencodeCli({ ...httpServer, url: 'https://${HOST}/mcp' }, 'en');
+    expect(text).toContain('does not pass `URL.canParse`');
+    expect(text.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+    expect(
+      toOpencodeCli({ ...httpServer, url: 'https://ex.com/${P}' }, 'en').startsWith('opencode'),
+    ).toBe(true);
+  });
 });
 
 describe('toOpencodeJson', () => {
@@ -1069,6 +1086,26 @@ describe('toOpencodeJson', () => {
     expect(toOpencodeJson(stdioWithEnv, 'en')).not.toContain('cannot be used as');
   });
 
+  it('rewrites ${VAR} in the url and reports it as a field', () => {
+    const text = toOpencodeJson({ ...httpServer, url: 'https://${HOST}/mcp' }, 'en');
+    expect(opencodeEntry(text, 'notion')['url']).toBe('https://{env:HOST}/mcp');
+    expect(text).toContain('"url"');
+    expect(text).toContain('opencode substitution');
+  });
+
+  it('describes an unset variable as an empty substitution, not an error', () => {
+    const text = toOpencodeJson({ ...httpServer, headers: { A: '${TOKEN}' } }, 'en');
+    expect(text).toContain('replaced with an empty string rather than raising an error');
+    expect(text).not.toContain('fails when the variable is unset');
+  });
+
+  it('tells the reader to merge into an existing config', () => {
+    expect(toOpencodeJson(stdioBase, 'en')).toContain('merge just the one `mcp` entry');
+    expect(toOpencodeJson({ ...stdioBase, scope: 'project' }, 'en')).toContain(
+      'merge just the one `mcp` entry',
+    );
+  });
+
   it('keeps an option-shaped name usable as a plain mcp key', () => {
     const text = toOpencodeJson({ ...stdioBase, name: '--url' }, 'en');
     expect(opencodeEntry(text, '--url')['type']).toBe('local');
@@ -1141,6 +1178,23 @@ describe('opencode helpers', () => {
         '': 'v',
       }),
     ).toEqual(['Bad Header', 'X:Y', 'X=Y', '']);
+  });
+
+  it('labels variable fields by group and includes the remote url', () => {
+    expect(opencodeVariableFields({ ...stdioBase, env: { A: '1' } })).toEqual({
+      'environment.A': '1',
+    });
+    expect(opencodeVariableFields({ ...httpServer, headers: { A: '1' } })).toEqual({
+      url: 'https://mcp.notion.com/mcp',
+      'headers.A': '1',
+    });
+  });
+
+  it('detects urls the opencode CLI would reject after rewriting', () => {
+    expect(opencodeCliRejectsUrl({ ...httpServer, url: 'https://${HOST}/mcp' })).toBe(true);
+    expect(opencodeCliRejectsUrl({ ...httpServer, url: 'https://ex.com/${P}' })).toBe(false);
+    expect(opencodeCliRejectsUrl(httpServer)).toBe(false);
+    expect(opencodeCliRejectsUrl(stdioBase)).toBe(false);
   });
 
   it('picks the rule that matches the transport', () => {

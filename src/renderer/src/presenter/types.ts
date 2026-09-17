@@ -1,6 +1,6 @@
 import type { DraftField } from '../mvp/intents';
 
-export interface TabItemViewModel {
+interface TabItemViewModel {
   readonly value: string;
   readonly label: string;
   readonly active: boolean;
@@ -34,7 +34,7 @@ export interface TextAreaFieldViewModel {
   readonly disabled: boolean;
 }
 
-export interface SelectOptionViewModel {
+interface SelectOptionViewModel {
   readonly value: string;
   readonly label: string;
 }
@@ -50,7 +50,7 @@ export interface SelectFieldViewModel {
   readonly modifier: string | null;
 }
 
-export interface ArgRowViewModel {
+interface ArgRowViewModel {
   readonly id: string;
   readonly value: string;
   readonly placeholder: string;
@@ -67,7 +67,7 @@ export interface ArgListViewModel {
   readonly rows: readonly ArgRowViewModel[];
 }
 
-export interface KeyValueRowViewModel {
+interface KeyValueRowViewModel {
   readonly id: string;
   readonly key: string;
   readonly value: string;
@@ -148,7 +148,7 @@ export interface ServerItemViewModel {
   readonly selected: boolean;
 }
 
-export interface LanguageOptionViewModel {
+interface LanguageOptionViewModel {
   readonly value: string;
   readonly label: string;
   readonly active: boolean;

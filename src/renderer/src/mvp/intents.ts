@@ -6,7 +6,7 @@ export type DraftField = 'name' | 'description' | 'scope' | 'command' | 'url';
 
 export type RowCollection = 'args' | 'env' | 'headers';
 
-export type RowPart = 'key' | 'value';
+type RowPart = 'key' | 'value';
 
 export type TabChannel = 'transport' | 'format';
 
@@ -109,10 +109,6 @@ export type DomainIntent =
   | { readonly scope: 'domain'; readonly type: 'toast/expired'; readonly token: number };
 
 export type UiIntent = LocalIntent | DomainIntent;
-
-export function isDomainIntent(intent: UiIntent): intent is DomainIntent {
-  return intent.scope === 'domain';
-}
 
 export function isScope(value: string): value is Scope {
   return value === 'local' || value === 'project' || value === 'user';

@@ -3,7 +3,7 @@ import type { KanriApi } from '../../../shared/ipc';
 import type { Locale } from '../../../shared/i18n';
 import { createFocusAnchor, type Ports, type TimerPort } from '../mvp/ports';
 
-export interface FakeApi extends KanriApi {
+interface FakeApi extends KanriApi {
   readonly store: McpServer[];
   failNextWith: (message: string) => void;
   holdNextWrite: () => () => void;
@@ -32,7 +32,7 @@ function materialize(input: McpServerInput, id: string): McpServer {
   return { ...input, id, createdAt: 0, updatedAt: 0 };
 }
 
-export function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
+function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
   const store: McpServer[] = [...initial];
   let pendingFailure: string | null = null;
   let created = 0;
@@ -99,13 +99,13 @@ export function createFakeApi(initial: readonly McpServer[] = []): FakeApi {
   };
 }
 
-export interface ManualTimers {
+interface ManualTimers {
   readonly port: TimerPort;
   readonly pending: () => number;
   readonly runAll: () => void;
 }
 
-export function createManualTimers(): ManualTimers {
+function createManualTimers(): ManualTimers {
   const scheduled = new Map<number, () => void>();
   let handle = 0;
   return {

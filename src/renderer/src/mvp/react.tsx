@@ -21,7 +21,7 @@ export function RuntimeProvider({ mediator, links, children }: RuntimeProviderPr
   );
 }
 
-export function useMediator(): Mediator {
+function useMediator(): Mediator {
   const mediator = useContext(MediatorContext);
   if (mediator === null) throw new Error('useMediator must be used within <RuntimeProvider>');
   return mediator;

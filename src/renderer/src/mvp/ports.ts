@@ -2,7 +2,7 @@ import { kanri } from '../api';
 import { DEFAULT_LOCALE, isLocale, resolveLocale, type Locale } from '../../../shared/i18n';
 import type { KanriApi } from '../../../shared/ipc';
 
-export interface ClipboardPort {
+interface ClipboardPort {
   writeText: (text: string) => Promise<void>;
 }
 
@@ -11,7 +11,7 @@ export interface TimerPort {
   cancel: (handle: number) => void;
 }
 
-export interface DocumentPort {
+interface DocumentPort {
   setTitle: (title: string) => void;
   setLang: (lang: string) => void;
   captureFocus: () => void;
@@ -23,9 +23,9 @@ export interface FocusAnchor {
   restore: () => void;
 }
 
-export const FOCUS_FALLBACK_ATTRIBUTE = 'data-focus-fallback';
+const FOCUS_FALLBACK_ATTRIBUTE = 'data-focus-fallback';
 
-export function afterNextPaint(fn: () => void): void {
+function afterNextPaint(fn: () => void): void {
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
       fn();
@@ -61,12 +61,12 @@ export function createFocusAnchor(
   };
 }
 
-export interface PreferencesPort {
+interface PreferencesPort {
   readLocale: () => Locale | null;
   writeLocale: (locale: Locale) => void;
 }
 
-export interface LoggerPort {
+interface LoggerPort {
   warn: (message: string, detail?: unknown) => void;
   error: (message: string, detail?: unknown) => void;
 }
@@ -82,7 +82,7 @@ export interface Ports {
 
 const LOCALE_STORAGE_KEY = 'mcp-kanri.locale';
 
-export function detectInitialLocale(): Locale {
+function detectInitialLocale(): Locale {
   if (typeof window === 'undefined') return DEFAULT_LOCALE;
   try {
     const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);

@@ -116,7 +116,7 @@ export function modalGuardLink(): ChainLink {
   });
 }
 
-export interface TraceEntry {
+interface TraceEntry {
   readonly intent: string;
   readonly outcome: DispatchOutcome['status'];
   readonly path: readonly string[];

@@ -952,8 +952,20 @@ export function opencodeUnexpandedKeys(record: Record<string, string>): string[]
     .map(([key]) => key);
 }
 
-export function opencodeEntryKeyIssues(record: Record<string, string>): string[] {
-  return Object.keys(record).filter((key) => key.includes('=') || key.trim().length === 0);
+const HTTP_FIELD_NAME = /^[-!#$%&'*+.^_`|~0-9A-Za-z]+$/;
+
+export function opencodeEnvKeyIssues(env: Record<string, string>): string[] {
+  return Object.keys(env).filter((key) => key.includes('=') || key.trim().length === 0);
+}
+
+export function opencodeHeaderKeyIssues(headers: Record<string, string>): string[] {
+  return Object.keys(headers).filter((key) => !HTTP_FIELD_NAME.test(key));
+}
+
+export function opencodeEntryKeyIssues(server: McpServer): string[] {
+  return server.transport === 'stdio'
+    ? opencodeEnvKeyIssues(server.env)
+    : opencodeHeaderKeyIssues(server.headers);
 }
 
 function opencodeVariableNotes(server: McpServer, locale: Locale): string[] {
@@ -984,7 +996,7 @@ function opencodeVariableNotes(server: McpServer, locale: Locale): string[] {
 }
 
 function opencodeKeyMalformedNotes(server: McpServer, locale: Locale): string[] {
-  const malformed = opencodeEntryKeyIssues(opencodeVariableRecord(server));
+  const malformed = opencodeEntryKeyIssues(server);
   if (malformed.length === 0) return [];
   const prefix =
     server.transport === 'stdio'

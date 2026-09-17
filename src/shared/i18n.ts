@@ -194,7 +194,7 @@ const ja = {
   'converters.opencode.headerKeyMalformed.line1':
     '# 注: 次の header キーは HTTP ヘッダ名として使えません: {keys}',
   'converters.opencode.headerKeyMalformed.line2':
-    '#     HTTP のフィールド名に `=` は使えず、空の名前も不正です。`opencode mcp add --header` は最初の `=` までをキーとして解釈し、"opencode.json" タブに書いた場合もリクエスト時に不正なヘッダ名として拒否されます。キー名を変更してください。',
+    '#     HTTP のフィールド名は token (英数字と `!#$%&\'*+-.^_`|~` のみ) である必要があり、空白・`:`・`=` を含む名前や空の名前は使えません。`opencode mcp add --header` は最初の `=` までをキーとして解釈し、"opencode.json" タブに書いた場合もリクエスト組み立て時に不正なヘッダ名として拒否されます。キー名を変更してください。',
   'converters.opencodeCli.optionName.line1':
     '# 注: サーバ名 "{name}" は `-` で始まるため、`opencode mcp add` の位置引数として渡せません。',
   'converters.opencodeCli.optionName.line2':
@@ -475,7 +475,7 @@ const en: Record<MessageKey, string> = {
   'converters.opencode.headerKeyMalformed.line1':
     '# Note: these header keys cannot be used as HTTP header names: {keys}',
   'converters.opencode.headerKeyMalformed.line2':
-    '#       An HTTP field name cannot contain `=`, and an empty name is invalid too. `opencode mcp add --header` splits on the first `=`, and writing it in the "opencode.json" tab only defers the problem: the request is rejected for the invalid header name. Rename the key.',
+    '#       An HTTP field name has to be a token (alphanumerics plus `!#$%&\'*+-.^_`|~`), so a name containing whitespace, `:` or `=`, and an empty name, are all invalid. `opencode mcp add --header` splits on the first `=`, and writing it in the "opencode.json" tab only defers the problem: the request is rejected for the invalid header name. Rename the key.',
   'converters.opencodeCli.optionName.line1':
     '# Note: the server name "{name}" starts with `-`, so it cannot be passed as a positional argument to `opencode mcp add`.',
   'converters.opencodeCli.optionName.line2':

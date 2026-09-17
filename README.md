@@ -203,12 +203,15 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   - `opencode mcp add` の `--header` は他の CLI と違って `KEY=VALUE` 形式
     (`Key: Value` ではない) です。`--env` は local 専用、`--header` は
     remote 専用で、混ぜると CLI 側がエラーになるため出力を出し分けます。
-  - `=` を含むキーや空のキーは、env なら環境変数名として (プロセスの環境は
-    NAME=VALUE の並びなので `A=B` に `c` を入れても子には `A=B=c` として
-    渡ります)、header なら HTTP フィールド名として成立しません。CLI の
+  - キー名の検証はトランスポートごとに分けています。env は `=` を含むキーと
+    空のキーを弾きます (プロセスの環境は NAME=VALUE の並びなので、`A=B` に
+    `c` を入れても子には `A=B=c` として渡り `A` に `B=c` が入ります)。
+    header は HTTP の token (英数字と ``!#$%&'*+-.^_`|~``) のみを許すため、
+    空白や `:` を含む `Bad Header` / `X:Y` なども弾きます。CLI の
     `--env` / `--header` も最初の `=` で分割するため同じ結果になり、
-    `opencode.json` に直接書いても実行時の挙動は変わりません。そのため
-    どちらのタブでも「キー名を変更してください」と注記します。
+    `opencode.json` に直接書いても実行時に壊れる (header は fetch が
+    リクエスト組み立て時に拒否する) ため、どちらのタブでも
+    「キー名を変更してください」と注記します。
   - サーバ名が `-` で始まる場合 (`--url` や `--` など。mcp-kanri の名前
     バリデーションは `[A-Za-z0-9_-]` を許すので入力できてしまいます)、
     シェルのクオートを外すと `opencode mcp add` のオプションと区別が
@@ -436,12 +439,15 @@ another format on the fly.
     rather than `Key: Value`. `--env` is local-only and `--header` is
     remote-only — mixing them is a CLI error — so the two forms are emitted
     separately.
-  - A key containing `=` or an empty key is invalid either way: as an
-    environment variable name (a process environment is a list of
-    `NAME=VALUE` entries, so `A=B` set to `c` reaches the child as `A=B=c`)
-    and as an HTTP field name. The CLI's `--env` / `--header` split on the
-    first `=` and land in the same place, and writing it straight into
-    `opencode.json` does not change the runtime behaviour, so both tabs
+  - Key validation is per transport. For env, a key containing `=` and an
+    empty key are rejected (a process environment is a list of `NAME=VALUE`
+    entries, so `A=B` set to `c` reaches the child as `A=B=c`, i.e. `A` with
+    the value `B=c`). For headers, only an HTTP token is allowed
+    (alphanumerics plus ``!#$%&'*+-.^_`|~``), which also rejects names with
+    whitespace or `:` such as `Bad Header` and `X:Y`. The CLI's `--env` /
+    `--header` split on the first `=` and land in the same place, and
+    writing it straight into `opencode.json` still breaks at runtime
+    (headers are rejected by fetch when the request is built), so both tabs
     carry a note asking you to rename the key.
   - A server name starting with `-` (`--url`, `--`, …; mcp-kanri's name
     validation allows `[A-Za-z0-9_-]`, so it can be entered) is

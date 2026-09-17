@@ -12,7 +12,9 @@ import {
   mcpProxyBridge,
   opencodeConfigPath,
   opencodeEntryKeyIssues,
+  opencodeEnvKeyIssues,
   opencodeEnvRefKeys,
+  opencodeHeaderKeyIssues,
   opencodeNameLooksLikeOption,
   opencodeUnexpandedKeys,
   partitionCodexStdioEnv,
@@ -1058,8 +1060,12 @@ describe('toOpencodeJson', () => {
     expect(env).toContain('"  "');
     expect(env).not.toContain('can carry the key verbatim');
 
-    const header = toOpencodeJson({ ...httpServer, headers: { 'X=Y': 'z' } }, 'en');
+    const header = toOpencodeJson(
+      { ...httpServer, headers: { 'X=Y': 'a', 'Bad Header': 'b', 'X:Y': 'c' } },
+      'en',
+    );
     expect(header).toContain('cannot be used as HTTP header names');
+    expect(header).toContain('"X=Y", "Bad Header", "X:Y"');
     expect(toOpencodeJson(stdioWithEnv, 'en')).not.toContain('cannot be used as');
   });
 
@@ -1115,13 +1121,33 @@ describe('opencode helpers', () => {
     expect(opencodeNameLooksLikeOption('_private')).toBe(false);
   });
 
-  it('flags keys the CLI KEY=VALUE form cannot carry', () => {
-    expect(opencodeEntryKeyIssues({ OK: 'v', 'A=B': 'c', '': 'd', '  ': 'e' })).toEqual([
+  it('flags env keys that cannot be an environment variable name', () => {
+    expect(opencodeEnvKeyIssues({ OK: 'v', 'A=B': 'c', '': 'd', '  ': 'e' })).toEqual([
       'A=B',
       '',
       '  ',
     ]);
-    expect(opencodeEntryKeyIssues({ OK: 'v' })).toEqual([]);
+    expect(opencodeEnvKeyIssues({ OK: 'v', 'Has Space': 'w' })).toEqual([]);
+  });
+
+  it('flags header keys that are not HTTP tokens', () => {
+    expect(
+      opencodeHeaderKeyIssues({
+        'X-Ok': 'v',
+        "Weird!#$%&'*+.^_`|~0": 'v',
+        'Bad Header': 'v',
+        'X:Y': 'v',
+        'X=Y': 'v',
+        '': 'v',
+      }),
+    ).toEqual(['Bad Header', 'X:Y', 'X=Y', '']);
+  });
+
+  it('picks the rule that matches the transport', () => {
+    expect(opencodeEntryKeyIssues({ ...stdioBase, env: { 'Has Space': 'v' } })).toEqual([]);
+    expect(opencodeEntryKeyIssues({ ...httpServer, headers: { 'Has Space': 'v' } })).toEqual([
+      'Has Space',
+    ]);
   });
 });
 

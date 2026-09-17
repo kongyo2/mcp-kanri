@@ -25,10 +25,11 @@ operating system locale.
 ## 日本語
 
 Windows 11 向けの MCP (Model Context Protocol) 設定管理デスクトップアプリです。
-1 つの MCP サーバ登録から Claude Code / Codex / Gemini / Qwen / Grok Build と
-いった各 CLI コマンドや、Claude Desktop / Cursor / VS Code / Google Antigravity /
-Cline 用の `mcpServers` JSON、Codex と Grok Build の `config.toml` まで
-ワンクリックで生成・コピーできます。
+1 つの MCP サーバ登録から Claude Code / Codex / Gemini / Qwen / Grok Build /
+opencode の各 CLI コマンドや、Claude Desktop / Cursor / VS Code /
+Google Antigravity / Cline 用の `mcpServers` JSON、Codex と Grok Build の
+`config.toml`、opencode の `opencode.json` まで、ワンクリックで生成・コピー
+できます。
 
 UI は日本語と英語に対応しており、サイドバー下部から切り替えられます。
 初回起動時は OS のロケールから自動判定します。
@@ -81,12 +82,14 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   解決します。例:
   - Claude Desktop は本体が stdio のみ対応のため、リモートサーバは
     `uvx mcp-proxy` で stdio に変換します。Streamable HTTP の場合は
-    `--transport streamablehttp` を明示し、複数ヘッダは `--headers K V` を
-    繰り返す形式で正しく出力します。
+    `--transport streamablehttp` を明示し、ヘッダは `--headers K V` を
+    1 つずつ繰り返す形式で出力します。
   - Codex のトランスポートは `stdio` と `streamable_http` の 2 つだけで SSE を
     持たないため、SSE 登録は `npx -y mcp-remote` で stdio に橋渡しし、その旨を
     コメントで注記します。
-  - Gemini CLI / Qwen Code は `--` セパレータが必要なケースを正しく挿入。
+  - Gemini CLI / Qwen Code の stdio 出力では、引数を `--` の後ろに置きます。
+    `--` がないと、引数に含まれるフラグが CLI 自身のオプションとして
+    解釈されます。
   - `Authorization: Bearer ${ENV_VAR}` 形式のヘッダは Codex の
     `bearer_token_env_var` / `--bearer-token-env-var` に自動変換。それ以外の
     `${ENV_VAR}` ヘッダは `env_http_headers`、リテラル値は `http_headers` に
@@ -102,15 +105,14 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     Windows パスの `\Users` などがエスケープ扱いになり `config.toml` 全体が
     読めなくなるためです。パスに `'` が含まれる場合はリテラル文字列にできない
     ので、その場合だけダブルクォートと `\\` を使うよう併記します。
-    貼り付け先としては `~/.codex` ではなく
-    `$CODEX_HOME` を案内するので、`CODEX_HOME` を変更している環境でも
-    Codex が実際に読むファイルを指します。
+    貼り付け先としては `~/.codex` ではなく `$CODEX_HOME` を案内するので、
+    `CODEX_HOME` を変更している環境でも Codex が実際に読むファイルを指します。
   - scope が `project` / `local` のときは「Codex CLI」タブの
     `codex mcp add` 行自体をコメントアウトします。このコマンドには scope が
     なく、貼り付けて実行すると意図に反して全プロジェクト共通のグローバル
     登録になってしまうためです (注記を読む前に実行されてしまいます)。
-    コメント化は注記と同じ行単位の処理を通すので、env の値などに改行が
-    含まれていても 2 行目以降が素のシェル行として残ることはありません。
+    env の値などに改行が含まれていても、コメント化は行単位なので全行が
+    コメントになります。
   - Codex には `local` (自分だけ) に相当する層がないため、`local` は
     `project` と同じ `.codex/config.toml` として出力し、リポジトリで共有される
     点を注記します。`.gitignore` は未追跡のファイルにしか効かず、既に
@@ -139,26 +141,22 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     失敗するため)。
   - `Authorization` に値を直接書いた登録は、`config.toml` に平文で残ること、
     `codex mcp list` が Bearer 認証済みとして表示する (ログインが必要な
-    サーバとして出てこない) ことを注記します。Bearer トークンには
-    `Bearer ${VAR}` 形式を、
-    Basic / Digest など Bearer 以外の方式には値全体を環境変数に移して
-    `Authorization` = `${VAR}` (= `env_http_headers`) を案内し、認証方式を
-    壊す書き換えを勧めないようにしています。
+    サーバとして出てこない) ことを注記します。案内する書き方は認証方式ごとに
+    分かれ、Bearer トークンなら `Bearer ${VAR}` 形式、Basic / Digest など
+    Bearer 以外の方式なら値全体を環境変数に移した `Authorization` = `${VAR}`
+    (= `env_http_headers`) です。
   - Google Antigravity はリモート URL のキー名が `serverUrl` (camelCase)
     で他のクライアントと異なるため、自動で書き換えます。SSE はネイティブ
-    未対応なので `npx -y mcp-remote` で stdio に橋渡しします
-    (https://antigravity.google/docs/mcp)。
+    未対応なので `npx -y mcp-remote` で stdio に橋渡しします。
   - Cline は Streamable HTTP の `type` リテラルが `"streamableHttp"`
     (camelCase) で、Cursor / VS Code / Claude の `"http"` とは異なるため、
-    自動で書き換えます (cline `src/services/mcp/schemas.ts` 参照)。
-    保存先は VS Code globalStorage の
+    自動で書き換えます。保存先は VS Code globalStorage の
     `saoudrizwan.claude-dev/settings/cline_mcp_settings.json` です。
   - Grok Build は HTTP / SSE をネイティブ対応 (`url` と `type = "sse"`) して
     いるため、`uvx mcp-proxy` / `npx mcp-remote` でのブリッジは行わず、
-    そのまま `url` 形式で出力します (公式ドキュメントもネイティブ形式を
-    推奨)。OAuth が必要なサーバは Grok Build がブラウザ認証まで行い、
-    トークンを `~/.grok/mcp_credentials.json` に保存するため、
-    `Authorization` ヘッダを手書きする必要はありません。
+    そのまま `url` 形式で出力します。OAuth が必要なサーバは Grok Build が
+    ブラウザ認証まで行い、トークンを `~/.grok/mcp_credentials.json` に
+    保存するため、`Authorization` ヘッダを手書きする必要はありません。
   - Grok Build の scope は `user` と `project` の 2 つだけなので、`local` は
     `project` (`.grok\config.toml`) に丸め、その旨をコメントで注記します。
   - Grok Build は `server__tool` (アンダースコア 2 つ) でツールを
@@ -195,11 +193,9 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     env / headers / リモート URL に書いた `${VAR}` は `{env:VAR}` へ自動
     変換し、変換したフィールドを注記します。`${1BAD}` のように変換できない
     `${...}` が残る場合も別途注記します。
-  - 変数が未設定でも opencode はエラーにせず空文字に置換します
-    (`config/variable.ts` の `{env:...}` 置換は `missing` オプションを見ず
-    常に `|| ""`)。env なら空の値でサーバが起動し、header なら空の認証情報で
-    リクエストが飛び、URL なら `https:///mcp` になって接続に失敗するため、
-    その旨も注記します。
+  - 変数が未設定でも opencode はエラーにせず空文字に置換します。env なら
+    空の値でサーバが起動し、header なら空の認証情報でリクエストが飛び、
+    URL なら `https:///mcp` になって接続に失敗するため、その旨も注記します。
   - URL のホスト部分に `{env:VAR}` を置くと `URL.canParse` を通らず、
     `opencode mcp add --url` が "Invalid URL" で失敗します (パス部分なら
     通ります)。該当する場合はコマンドをコメントアウトして注記します。
@@ -217,8 +213,8 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   - `--env` / `--header` は値を `--env=KEY=VALUE` のように連結した形で
     出力します。分離した形だと、`-FOO` のように `-` で始まるキーを
     yargs がオプションとみなして値を黙って捨ててしまうためです
-    (yargs 18.0.0 で `--env -FOO=v` → `env = []`、`--env=-FOO=v` →
-    `env = ["-FOO=v"]` を確認済み)。シェルのクオートは引数解析より前に
+    (yargs 18.0.0 では `--env -FOO=v` が `env = []`、`--env=-FOO=v` が
+    `env = ["-FOO=v"]` になります)。シェルのクオートは引数解析より前に
     外れるので、クオートでは防げません。
   - キー名の検証はトランスポートごとに分けています。env は `=` を含むキーと
     空のキーを弾きます (プロセスの環境は NAME=VALUE の並びなので、`A=B` に
@@ -237,7 +233,7 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
     「opencode.json」タブの出力はそのまま使えます。
   - opencode の設定は JSONC (`opencode.json` / `opencode.jsonc` とも
     jsonc-parser で読み込み) なので、「opencode.json」タブの注記は `//`
-    コメントで出力し、そのまま貼り付けられるようにしています。
+    コメントで出力し、そのまま貼り付けられます。
   - opencode のグローバル設定は XDG 準拠 (`xdg-basedir`) で、Windows でも
     `%USERPROFILE%\.config\opencode\opencode.json` です
     (`%APPDATA%` ではありません)。`XDG_CONFIG_HOME` を設定している場合は
@@ -245,7 +241,7 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   - opencode はツールを `<サーバ名>_<ツール名>` で登録するため、
     `"tools": { "<サーバ名>_*": false }` のように glob で有効/無効を
     切り替えられます。サーバ名に使える文字は `[A-Za-z0-9_-]` で、
-    mcp-kanri の名前バリデーションと同じ範囲なので追加の注記は不要です。
+    mcp-kanri の名前バリデーションと同じ範囲です。
   - リモートサーバの OAuth は opencode が自動検出し、必要なら
     `opencode mcp auth <name>` でブラウザ認証まで行います。トークンは
     `~/.local/share/opencode/mcp-auth.json` に保存されるので、
@@ -324,14 +320,15 @@ another format on the fly.
     `"streamableHttp"`, not `"http"`.
 - **Per-client quirks handled for you**:
   - Because Claude Desktop only speaks stdio natively, remote servers are
-    rewritten via `uvx mcp-proxy`. For Streamable HTTP sources we emit
-    `--transport streamablehttp` explicitly and repeat `--headers K V`
-    once per header.
+    rewritten via `uvx mcp-proxy`. A Streamable HTTP source gets an explicit
+    `--transport streamablehttp`, and each header becomes one repeated
+    `--headers K V`.
   - Codex only has the `stdio` and `streamable_http` transports, so SSE
     registrations are bridged to stdio via `npx -y mcp-remote` and the output
     carries a note saying so.
-  - For Gemini CLI / Qwen Code, the `--` separator is inserted whenever
-    the server-side args could collide with known flags.
+  - Gemini CLI / Qwen Code stdio output places the server's args after a `--`
+    separator. Without it, a flag among those args is read as an option of
+    the CLI itself.
   - `Authorization: Bearer ${ENV_VAR}` headers are converted to Codex's
     `bearer_token_env_var` / `--bearer-token-env-var` automatically. Other
     `${ENV_VAR}` headers go to `env_http_headers`, and literal values to
@@ -353,9 +350,8 @@ another format on the fly.
   - For the `project` / `local` scopes the `codex mcp add` line in the "Codex
     CLI" tab is itself commented out: the command has no scope, so pasting it
     would register the server globally — against the chosen scope, and before
-    the reader reaches the note explaining that. The command goes through the
-    same line-by-line comment conversion as the notes, so a newline inside an
-    env value cannot leave a later physical line as live shell.
+    the reader reaches the note explaining that. Commenting is line by line,
+    so a value containing newlines is commented on every line.
   - Codex has no `local` (private to you) layer, so `local` is emitted as the
     same `.codex/config.toml` as `project`, with a note that the file is
     shared with everyone who checks out the repository. Since `.gitignore`
@@ -386,29 +382,25 @@ another format on the fly.
   - A registration that writes the credential straight into `Authorization` is
     flagged: it is stored in plain text in `config.toml`, and `codex mcp list`
     reports the server as bearer-authenticated, so it never shows up as one
-    that still needs a login. The remediation follows the scheme —
-    `Bearer ${VAR}` for a
-    Bearer token, and for Basic / Digest and friends, moving the whole value
-    into an environment variable referenced as `Authorization` = `${VAR}`
-    (which becomes `env_http_headers`) rather than a rewrite that would break
-    the scheme.
+    that still needs a login. The suggested form follows the scheme:
+    `Bearer ${VAR}` for a Bearer token, and for Basic / Digest and friends,
+    the whole value moved into an environment variable referenced as
+    `Authorization` = `${VAR}` (which becomes `env_http_headers`).
   - Google Antigravity uses `serverUrl` (camelCase) for remote URLs, which
     differs from every other client; the converter rewrites the key
     automatically. SSE is not supported natively, so SSE entries are
-    bridged to stdio via `npx -y mcp-remote`
-    (https://antigravity.google/docs/mcp).
+    bridged to stdio via `npx -y mcp-remote`.
   - Cline's Streamable HTTP `type` literal is `"streamableHttp"`
     (camelCase), not `"http"` like Cursor / VS Code / Claude. The
-    converter rewrites it automatically (see cline
-    `src/services/mcp/schemas.ts`). The settings file lives in the VS
+    converter rewrites it automatically. The settings file lives in the VS
     Code globalStorage at
     `saoudrizwan.claude-dev/settings/cline_mcp_settings.json`.
   - Grok Build speaks HTTP and SSE natively (`url` plus `type = "sse"`), so
     remote servers are emitted in that native form instead of being bridged
-    through `uvx mcp-proxy` / `npx mcp-remote` — which is what the Grok Build
-    documentation recommends. OAuth servers are handled by Grok Build itself
-    (browser flow, tokens stored in `~/.grok/mcp_credentials.json`), so there
-    is no `Authorization` header to write by hand.
+    through `uvx mcp-proxy` / `npx mcp-remote`. OAuth servers are handled by
+    Grok Build itself (browser flow, tokens stored in
+    `~/.grok/mcp_credentials.json`), so there is no `Authorization` header to
+    write by hand.
   - Grok Build only has the `user` and `project` scopes, so `local` is
     rounded to `project` (`.grok\config.toml`) with a note in the output.
   - Grok Build registers tools under `server__tool` (two underscores), so a
@@ -448,10 +440,9 @@ another format on the fly.
     `{env:VAR}` and the rewritten fields are noted. Any `${...}` that cannot
     be rewritten (e.g. `${1BAD}`) gets its own note.
   - An unset variable is not an error for opencode: it substitutes an empty
-    string (the `{env:...}` replacement in `config/variable.ts` ignores the
-    `missing` option and always falls back to `|| ""`). That starts the
-    server with an empty env value, sends an empty credential in a header,
-    or collapses a URL to `https:///mcp`, so the output says so.
+    string. That starts the server with an empty env value, sends an empty
+    credential in a header, or collapses a URL to `https:///mcp`, so the
+    output says so.
   - A `{env:VAR}` in the host part of a URL does not pass `URL.canParse`, so
     `opencode mcp add --url` fails with "Invalid URL" (the path part is
     fine). The command is commented out with a note in that case. The config
@@ -469,8 +460,8 @@ another format on the fly.
     separately.
   - `--env` / `--header` values are emitted attached, as `--env=KEY=VALUE`.
     In the separated form yargs reads a key starting with `-` (such as
-    `-FOO`) as another option and silently drops the value (verified against
-    yargs 18.0.0: `--env -FOO=v` gives `env = []`, `--env=-FOO=v` gives
+    `-FOO`) as another option and silently drops the value (in yargs 18.0.0,
+    `--env -FOO=v` gives `env = []` while `--env=-FOO=v` gives
     `env = ["-FOO=v"]`). Shell quoting cannot prevent this, because quotes
     are removed before argument parsing.
   - Key validation is per transport. For env, a key containing `=` and an
@@ -498,7 +489,7 @@ another format on the fly.
   - opencode registers tools as `<server-name>_<tool-name>`, so they can be
     toggled with globs such as `"tools": { "<server-name>_*": false }`.
     Server names may use `[A-Za-z0-9_-]`, which matches mcp-kanri's own name
-    validation, so no extra note is needed.
+    validation.
   - OAuth for remote servers is detected automatically, and
     `opencode mcp auth <name>` runs the browser flow. Tokens are stored in
     `~/.local/share/opencode/mcp-auth.json`, so there is no need to hand-write

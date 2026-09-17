@@ -203,9 +203,18 @@ UI は日本語と英語に対応しており、サイドバー下部から切�
   - `opencode mcp add` の `--header` は他の CLI と違って `KEY=VALUE` 形式
     (`Key: Value` ではない) です。`--env` は local 専用、`--header` は
     remote 専用で、混ぜると CLI 側がエラーになるため出力を出し分けます。
-    どちらも最初の `=` までをキーとして解釈するので、`=` を含むキーや空の
-    キーは CLI では表現できません。該当する場合は注記し、キーをそのまま
-    書ける「opencode.json」タブを案内します。
+  - `=` を含むキーや空のキーは、env なら環境変数名として (プロセスの環境は
+    NAME=VALUE の並びなので `A=B` に `c` を入れても子には `A=B=c` として
+    渡ります)、header なら HTTP フィールド名として成立しません。CLI の
+    `--env` / `--header` も最初の `=` で分割するため同じ結果になり、
+    `opencode.json` に直接書いても実行時の挙動は変わりません。そのため
+    どちらのタブでも「キー名を変更してください」と注記します。
+  - サーバ名が `-` で始まる場合 (`--url` や `--` など。mcp-kanri の名前
+    バリデーションは `[A-Za-z0-9_-]` を許すので入力できてしまいます)、
+    シェルのクオートを外すと `opencode mcp add` のオプションと区別が
+    つかず名前が渡りません。scope 不一致と同じくコマンドをコメントアウト
+    して注記します。`mcp` のキーとしてなら問題なく書けるので、
+    「opencode.json」タブの出力はそのまま使えます。
   - opencode の設定は JSONC (`opencode.json` / `opencode.jsonc` とも
     jsonc-parser で読み込み) なので、「opencode.json」タブの注記は `//`
     コメントで出力し、そのまま貼り付けられるようにしています。
@@ -426,9 +435,20 @@ another format on the fly.
   - Unlike the other CLIs, `opencode mcp add --header` takes `KEY=VALUE`
     rather than `Key: Value`. `--env` is local-only and `--header` is
     remote-only — mixing them is a CLI error — so the two forms are emitted
-    separately. Both split on the first `=`, so a key containing `=` or an
-    empty key cannot be expressed on the CLI; those are flagged with a note
-    pointing at the "opencode.json" tab, which carries keys verbatim.
+    separately.
+  - A key containing `=` or an empty key is invalid either way: as an
+    environment variable name (a process environment is a list of
+    `NAME=VALUE` entries, so `A=B` set to `c` reaches the child as `A=B=c`)
+    and as an HTTP field name. The CLI's `--env` / `--header` split on the
+    first `=` and land in the same place, and writing it straight into
+    `opencode.json` does not change the runtime behaviour, so both tabs
+    carry a note asking you to rename the key.
+  - A server name starting with `-` (`--url`, `--`, …; mcp-kanri's name
+    validation allows `[A-Za-z0-9_-]`, so it can be entered) is
+    indistinguishable from an `opencode mcp add` option once shell quoting
+    is removed, and the name never arrives. The command is commented out
+    with a note, as for the scope mismatch. Such a name is fine as an `mcp`
+    key, so the "opencode.json" tab output is usable as-is.
   - opencode config is JSONC (both `opencode.json` and `opencode.jsonc` are
     read through jsonc-parser), so the "opencode.json" tab emits its notes as
     `//` comments and stays pasteable as-is.

@@ -13,6 +13,7 @@ import {
   opencodeConfigPath,
   opencodeEntryKeyIssues,
   opencodeEnvRefKeys,
+  opencodeNameLooksLikeOption,
   opencodeUnexpandedKeys,
   partitionCodexStdioEnv,
   quoteShell,
@@ -961,15 +962,12 @@ describe('toOpencodeCli', () => {
     expect(text).not.toContain('has no scope option');
   });
 
-  it('warns about keys that cannot survive KEY=VALUE parsing', () => {
-    const env = toOpencodeCli({ ...stdioBase, env: { 'A=B': 'c', '  ': 'd' } }, 'en');
-    expect(env).toContain('`opencode mcp add --env`');
-    expect(env).toContain('"A=B"');
-    expect(env).toContain('"  "');
-
-    const header = toOpencodeCli({ ...httpServer, headers: { 'X=Y': 'z' } }, 'en');
-    expect(header).toContain('`opencode mcp add --header`');
-    expect(toOpencodeCli(stdioWithEnv, 'en')).not.toContain('these keys cannot be expressed');
+  it('comments the command out when the name would be read as an option', () => {
+    const text = toOpencodeCli({ ...stdioBase, name: '--url' }, 'en');
+    expect(text).toContain('starts with `-`');
+    expect(text).toContain('# opencode mcp add --url --');
+    expect(text.split('\n').every((line) => line.startsWith('#'))).toBe(true);
+    expect(toOpencodeCli(stdioBase, 'en')).not.toContain('starts with `-`');
   });
 
   it('rewrites ${VAR} into the opencode substitution form', () => {
@@ -1053,6 +1051,24 @@ describe('toOpencodeJson', () => {
     );
   });
 
+  it('carries the malformed-key warning into the JSON output too', () => {
+    const env = toOpencodeJson({ ...stdioBase, env: { 'A=B': 'c', '  ': 'd' } }, 'en');
+    expect(env).toContain('cannot be used as environment variable names');
+    expect(env).toContain('"A=B"');
+    expect(env).toContain('"  "');
+    expect(env).not.toContain('can carry the key verbatim');
+
+    const header = toOpencodeJson({ ...httpServer, headers: { 'X=Y': 'z' } }, 'en');
+    expect(header).toContain('cannot be used as HTTP header names');
+    expect(toOpencodeJson(stdioWithEnv, 'en')).not.toContain('cannot be used as');
+  });
+
+  it('keeps an option-shaped name usable as a plain mcp key', () => {
+    const text = toOpencodeJson({ ...stdioBase, name: '--url' }, 'en');
+    expect(opencodeEntry(text, '--url')['type']).toBe('local');
+    expect(text).not.toContain('starts with `-`');
+  });
+
   it('notes that local is rounded to the project config', () => {
     expect(toOpencodeJson(stdioWithEnv, 'en')).toContain('global and project layers');
     expect(toOpencodeJson(stdioBase, 'en')).not.toContain('global and project layers');
@@ -1089,6 +1105,14 @@ describe('opencode helpers', () => {
     const record = { A: 'Bearer ${OK}-${1BAD}' };
     expect(opencodeEnvRefKeys(record)).toEqual(['A']);
     expect(opencodeUnexpandedKeys(record)).toEqual(['A']);
+  });
+
+  it('flags names that collide with CLI options', () => {
+    expect(opencodeNameLooksLikeOption('--url')).toBe(true);
+    expect(opencodeNameLooksLikeOption('--')).toBe(true);
+    expect(opencodeNameLooksLikeOption('-x')).toBe(true);
+    expect(opencodeNameLooksLikeOption('chrome-devtools')).toBe(false);
+    expect(opencodeNameLooksLikeOption('_private')).toBe(false);
   });
 
   it('flags keys the CLI KEY=VALUE form cannot carry', () => {

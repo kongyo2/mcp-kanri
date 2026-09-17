@@ -983,6 +983,19 @@ function opencodeVariableNotes(server: McpServer, locale: Locale): string[] {
   return notes;
 }
 
+function opencodeKeyMalformedNotes(server: McpServer, locale: Locale): string[] {
+  const malformed = opencodeEntryKeyIssues(opencodeVariableRecord(server));
+  if (malformed.length === 0) return [];
+  const prefix =
+    server.transport === 'stdio'
+      ? 'converters.opencode.envKeyMalformed'
+      : 'converters.opencode.headerKeyMalformed';
+  return [
+    translate(locale, `${prefix}.line1`, { keys: joinForNote(malformed) }),
+    translate(locale, `${prefix}.line2`),
+  ];
+}
+
 function opencodeSharedNotes(server: McpServer, locale: Locale): string[] {
   const notes: string[] = [];
 
@@ -993,6 +1006,7 @@ function opencodeSharedNotes(server: McpServer, locale: Locale): string[] {
     );
   }
 
+  notes.push(...opencodeKeyMalformedNotes(server, locale));
   notes.push(...opencodeVariableNotes(server, locale));
   return notes;
 }
@@ -1012,42 +1026,45 @@ function opencodeAddCommand(server: McpServer): string {
   return parts.join(' ');
 }
 
-function opencodeCliKeyNotes(server: McpServer, locale: Locale): string[] {
-  const record = opencodeVariableRecord(server);
-  const malformed = opencodeEntryKeyIssues(record);
-  if (malformed.length === 0) return [];
-  const flag = server.transport === 'stdio' ? '--env' : '--header';
-  return [
-    translate(locale, 'converters.opencodeCli.keyMalformed.line1', {
-      flag,
-      keys: joinForNote(malformed),
-    }),
-    translate(locale, 'converters.opencodeCli.keyMalformed.line2', { flag }),
-    translate(locale, 'converters.opencodeCli.keyMalformed.line3'),
-  ];
+export function opencodeNameLooksLikeOption(name: string): boolean {
+  return name.startsWith('-');
+}
+
+function opencodeCliBlockingNotes(server: McpServer, locale: Locale): string[] {
+  const notes: string[] = [];
+
+  if (toOpencodeScope(server.scope) === 'project') {
+    notes.push(
+      translate(locale, 'converters.opencodeCli.globalOnly.line1', { scope: server.scope }),
+      translate(locale, 'converters.opencodeCli.globalOnly.line2'),
+      translate(locale, 'converters.opencodeCli.globalOnly.line3', {
+        path: OPENCODE_PROJECT_CONFIG_PATH,
+      }),
+      translate(locale, 'converters.opencodeCli.globalOnly.line4'),
+    );
+  }
+
+  if (opencodeNameLooksLikeOption(server.name)) {
+    notes.push(
+      translate(locale, 'converters.opencodeCli.optionName.line1', { name: server.name }),
+      translate(locale, 'converters.opencodeCli.optionName.line2'),
+      translate(locale, 'converters.opencodeCli.optionName.line3'),
+    );
+  }
+
+  return notes;
 }
 
 export function toOpencodeCli(server: McpServer, locale: Locale = 'en'): string {
   const command = opencodeAddCommand(server);
-  const trailingNotes = [
-    ...opencodeCliKeyNotes(server, locale),
-    ...opencodeSharedNotes(server, locale),
-  ].flatMap(asCommentLines);
+  const trailingNotes = opencodeSharedNotes(server, locale).flatMap(asCommentLines);
+  const blockingNotes = opencodeCliBlockingNotes(server, locale).flatMap(asCommentLines);
 
-  if (toOpencodeScope(server.scope) === 'global') {
+  if (blockingNotes.length === 0) {
     return [command, ...trailingNotes].join('\n');
   }
 
-  const scopeNotes = [
-    translate(locale, 'converters.opencodeCli.globalOnly.line1', { scope: server.scope }),
-    translate(locale, 'converters.opencodeCli.globalOnly.line2'),
-    translate(locale, 'converters.opencodeCli.globalOnly.line3', {
-      path: OPENCODE_PROJECT_CONFIG_PATH,
-    }),
-    translate(locale, 'converters.opencodeCli.globalOnly.line4'),
-  ].flatMap(asCommentLines);
-
-  return [...scopeNotes, ...asCommentLines(command), ...trailingNotes].join('\n');
+  return [...blockingNotes, ...asCommentLines(command), ...trailingNotes].join('\n');
 }
 
 interface OpencodeLocal {

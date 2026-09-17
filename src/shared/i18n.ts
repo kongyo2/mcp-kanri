@@ -187,12 +187,20 @@ const ja = {
     '#     代わりに "opencode.json" タブの内容を、プロジェクト直下の {path} に貼り付けてください。',
   'converters.opencodeCli.globalOnly.line4':
     '#     対話モードなら scope を選べます。引数なしで `opencode mcp add` を実行し、Location で Current project を選んでください。',
-  'converters.opencodeCli.keyMalformed.line1':
-    '# 注: 次のキーは `opencode mcp add {flag}` では表現できません: {keys}',
-  'converters.opencodeCli.keyMalformed.line2':
-    '#     `{flag}` は最初の `=` までをキーとして解釈するため、`=` を含むキーは壊れ (`A=B` に `c` を入れても A に B=c が入ります)、空のキーは CLI がエラーにします。',
-  'converters.opencodeCli.keyMalformed.line3':
-    '#     キー名を変更するか、キーをそのまま書ける "opencode.json" タブの出力を使ってください。',
+  'converters.opencode.envKeyMalformed.line1':
+    '# 注: 次の env キーは環境変数名として使えません: {keys}',
+  'converters.opencode.envKeyMalformed.line2':
+    '#     プロセスの環境は NAME=VALUE の並びなので `=` を含むキーは表現できず (`A=B` に `c` を入れても子プロセスには A=B=c として渡り A に B=c が入ります)、空のキーも同様です。`opencode mcp add --env` は最初の `=` までをキーとして解釈するため同じ結果になり、"opencode.json" タブに書いても実行時の挙動は変わりません。キー名を変更してください。',
+  'converters.opencode.headerKeyMalformed.line1':
+    '# 注: 次の header キーは HTTP ヘッダ名として使えません: {keys}',
+  'converters.opencode.headerKeyMalformed.line2':
+    '#     HTTP のフィールド名に `=` は使えず、空の名前も不正です。`opencode mcp add --header` は最初の `=` までをキーとして解釈し、"opencode.json" タブに書いた場合もリクエスト時に不正なヘッダ名として拒否されます。キー名を変更してください。',
+  'converters.opencodeCli.optionName.line1':
+    '# 注: サーバ名 "{name}" は `-` で始まるため、`opencode mcp add` の位置引数として渡せません。',
+  'converters.opencodeCli.optionName.line2':
+    '#     シェルのクオートを外した時点でオプションと区別できず (例: 名前 `--url` は `--url` オプションとして、名前 `--` は引数区切りとして解釈されます)、名前が渡らず CLI がエラーになるため、下のコマンドはコメントアウトしてあります。',
+  'converters.opencodeCli.optionName.line3':
+    '#     "opencode.json" タブの出力なら `mcp` のキーとしてそのまま書けます。CLI から登録したい場合は `-` で始まらない名前に変更してください。',
   'converters.opencodeJson.target.global': '# 書き込み先: {path} (既定 {defaultPath})',
   'converters.opencodeJson.target.project':
     '# 書き込み先: プロジェクト直下の {path} (scope: {scope})',
@@ -460,12 +468,20 @@ const en: Record<MessageKey, string> = {
     '#       Paste the "opencode.json" tab into {path} at the project root instead.',
   'converters.opencodeCli.globalOnly.line4':
     '#       The interactive flow can pick a scope: run `opencode mcp add` with no arguments and choose "Current project" for Location.',
-  'converters.opencodeCli.keyMalformed.line1':
-    '# Note: these keys cannot be expressed with `opencode mcp add {flag}`: {keys}',
-  'converters.opencodeCli.keyMalformed.line2':
-    '#       `{flag}` splits on the first `=`, so a key containing `=` is corrupted (`A=B` set to `c` arrives as `A` with the value `B=c`) and an empty key is rejected by the CLI.',
-  'converters.opencodeCli.keyMalformed.line3':
-    '#       Rename the key, or use the "opencode.json" tab, which can carry the key verbatim.',
+  'converters.opencode.envKeyMalformed.line1':
+    '# Note: these env keys cannot be used as environment variable names: {keys}',
+  'converters.opencode.envKeyMalformed.line2':
+    '#       A process environment is a list of NAME=VALUE entries, so a key containing `=` cannot be represented (`A=B` set to `c` reaches the child as `A=B=c`, i.e. `A` with the value `B=c`), and the same goes for an empty key. `opencode mcp add --env` splits on the first `=` and lands in the same place, and writing it in the "opencode.json" tab does not change the runtime behaviour. Rename the key.',
+  'converters.opencode.headerKeyMalformed.line1':
+    '# Note: these header keys cannot be used as HTTP header names: {keys}',
+  'converters.opencode.headerKeyMalformed.line2':
+    '#       An HTTP field name cannot contain `=`, and an empty name is invalid too. `opencode mcp add --header` splits on the first `=`, and writing it in the "opencode.json" tab only defers the problem: the request is rejected for the invalid header name. Rename the key.',
+  'converters.opencodeCli.optionName.line1':
+    '# Note: the server name "{name}" starts with `-`, so it cannot be passed as a positional argument to `opencode mcp add`.',
+  'converters.opencodeCli.optionName.line2':
+    '#       Once shell quoting is removed it is indistinguishable from an option (the name `--url` is read as the `--url` option, and the name `--` as the argument separator), so the name never arrives and the CLI errors out. The command below is therefore commented out.',
+  'converters.opencodeCli.optionName.line3':
+    '#       The "opencode.json" tab can carry it verbatim as an `mcp` key. To register from the CLI, rename the server so it does not start with `-`.',
   'converters.opencodeJson.target.global': '# Write to: {path} (default: {defaultPath})',
   'converters.opencodeJson.target.project':
     '# Write to: {path} at the project root (scope: {scope})',
